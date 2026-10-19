@@ -140,7 +140,10 @@ function Index() {
   };
 
   const startRender = async () => {
-    if (support) return toast.error(support);
+    if (support) {
+      toast.error(support);
+      return;
+    }
     setStep("render");
     setParts([]);
     const ctrl = new AbortController();

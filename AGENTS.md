@@ -8,3 +8,4 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+- tsconfig noUncheckedIndexedAccess is off: index-heavy timeline/render code would need non-null asserts everywhere.

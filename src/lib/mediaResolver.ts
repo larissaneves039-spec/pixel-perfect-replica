@@ -164,7 +164,7 @@ export async function resolveAll(params: {
   queriesFor: (slot: Slot) => SectionQueries;
   opts: ResolveOptions;
   used: Set<string>;
-  existing?: ResolvedSlot[];
+  existing?: ResolvedSlot[] | undefined;
   onSlotResolved?: (done: number, total: number, origin: SlotOrigin, index: number) => void;
   concurrency?: number;
 }): Promise<ResolvedSlot[]> {
