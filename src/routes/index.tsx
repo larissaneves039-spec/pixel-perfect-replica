@@ -159,12 +159,27 @@ function Index() {
     renderStart.current = performance.now();
     await new Promise((r) => requestAnimationFrame(r));
     try {
+      const canvas = canvasRef.current;
+      if (!canvas) throw new Error("Não foi possível preparar o vídeo.");
+      const renderScenes = slots.map((s) => {
+        if (!s.media) throw new Error("Há uma cena sem mídia.");
+        return { start: s.slot.startTime, duration: s.slot.duration, media: s.media, effect: s.effect };
+      });
       const out = await renderVideo({
-        canvas: canvasRef.current!,
+        canvas,
         width: fmt.w,
         height: fmt.h,
         total: plannedTotal,
-        scenes: slots.map((s) => ({ start: s.slot.startTime, duration: s.slot.duration, media: s.media!, effect: s.effect })),
+        scenes: renderScenes,
+        replaceVideo: async (blocked, i) => {
+          ctrl.signal.throwIfAborted();
+          usedRef.current.add(blocked.key);
+          return resolveSlot(getClient(false), queriesFor(slots[i].slot), { ...opts, videoOnly: true }, usedRef.current, new Set([blocked.key]));
+        },
+        onVideoReplaced: (media, i) => {
+          setSlots((previous) => previous.map((s, j) => j === i ? { ...s, media, reused: false } : s));
+          toast(`Cena ${i + 1}: clipe bloqueado substituído por outro vídeo.`);
+        },
         crossfade: form.crossfade,
         scanlines: form.scanlines,
         bitrateMbps: form.bitrate,

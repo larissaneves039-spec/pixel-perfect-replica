@@ -1,6 +1,7 @@
 import fixWebmDuration from "fix-webm-duration";
 import type { Media } from "./pexelsClient";
 import type { Effect } from "./slotPlanner";
+import { loadVideoWithReplacement } from "./videoReplacement";
 
 export interface Scene {
   start: number;
@@ -38,6 +39,8 @@ export interface RenderOptions {
   partSeconds: number | null;
   onProgress?: (p: RenderProgress) => void;
   onPart?: (p: RenderPart) => void;
+  replaceVideo?: (blocked: Media, sceneIndex: number) => Promise<Media | null>;
+  onVideoReplaced?: (media: Media, sceneIndex: number) => void;
   signal: AbortSignal;
 }
 
@@ -80,11 +83,11 @@ type Loaded =
   | { kind: "image"; bmp: ImageBitmap }
   | { kind: "failed" };
 
-async function fetchBlob(url: string, ms: number): Promise<Blob> {
+async function fetchBlob(url: string, ms: number, signal?: AbortSignal): Promise<Blob> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
   try {
-    const r = await fetch(url, { signal: ctrl.signal });
+    const r = await fetch(url, { signal: signal ? AbortSignal.any([ctrl.signal, signal]) : ctrl.signal });
     if (!r.ok) throw new Error(String(r.status));
     return await r.blob();
   } finally {
@@ -96,7 +99,7 @@ async function loadBitmap(url: string): Promise<ImageBitmap> {
   return createImageBitmap(await fetchBlob(url, 30000));
 }
 
-async function loadScene(m: Media): Promise<Loaded> {
+async function loadScene(m: Media, signal: AbortSignal): Promise<Loaded> {
   if (m.type === "photo") {
     try {
       return { kind: "image", bmp: await loadBitmap(m.url) };
@@ -108,20 +111,36 @@ async function loadScene(m: Media): Promise<Loaded> {
       }
     }
   }
-  const thumbP = loadBitmap(m.thumbUrl).catch(() => null);
+  const blob = await fetchBlob(m.url, 90000, signal);
+  const url = URL.createObjectURL(blob);
+  const el = document.createElement("video");
+  el.muted = true;
+  el.playsInline = true;
+  el.loop = true;
+  el.preload = "auto";
   try {
-    const blob = await fetchBlob(m.url, 90000);
-    const url = URL.createObjectURL(blob);
-    const el = document.createElement("video");
-    el.muted = true;
-    el.playsInline = true;
-    el.loop = true;
-    el.preload = "auto";
-    el.src = url;
-    return { kind: "video", el, url, thumb: await thumbP };
+    await new Promise<void>((resolve, reject) => {
+      const finish = (error?: Error) => {
+        clearTimeout(timer);
+        el.onloadeddata = null;
+        el.onerror = null;
+        signal.removeEventListener("abort", abort);
+        if (error) reject(error); else resolve();
+      };
+      const abort = () => finish(new Error("Carregamento cancelado."));
+      const timer = setTimeout(() => finish(new Error("O clipe não carregou.")), 30000);
+      el.onloadeddata = () => finish();
+      el.onerror = () => finish(new Error("O clipe não pode ser reproduzido."));
+      signal.addEventListener("abort", abort, { once: true });
+      el.src = url;
+      if (signal.aborted) abort();
+    });
+    return { kind: "video", el, url, thumb: null };
   } catch {
-    const thumb = await thumbP;
-    return thumb ? { kind: "image", bmp: thumb } : { kind: "failed" };
+    el.removeAttribute("src");
+    el.load();
+    URL.revokeObjectURL(url);
+    throw new Error("Clipe bloqueado ou indisponível.");
   }
 }
 
@@ -147,7 +166,8 @@ export async function renderVideo(o: RenderOptions): Promise<RenderPart[]> {
   const { canvas, width: W, height: H, scenes, total, signal } = o;
   canvas.width = W;
   canvas.height = H;
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Não foi possível preparar o vídeo.");
   const mime = pickMime();
   if (!mime) throw new Error("Formato de vídeo não suportado.");
   const ext: "mp4" | "webm" = mime.includes("mp4") ? "mp4" : "webm";
@@ -156,7 +176,8 @@ export async function renderVideo(o: RenderOptions): Promise<RenderPart[]> {
     const c = document.createElement("canvas");
     c.width = 1;
     c.height = 4;
-    const cx = c.getContext("2d")!;
+    const cx = c.getContext("2d");
+    if (!cx) return null;
     cx.fillStyle = "#000";
     cx.fillRect(0, 0, 1, 1);
     return ctx.createPattern(c, "repeat");
@@ -164,14 +185,27 @@ export async function renderVideo(o: RenderOptions): Promise<RenderPart[]> {
 
   const loaded = new Map<number, Promise<Loaded>>();
   const ready = new Map<number, Loaded>();
+  let failure: unknown = null;
   const ensure = (i: number) => {
     if (i < 0 || i >= scenes.length || loaded.has(i)) return;
-    const p = loadScene(scenes[i].media);
+    const original = scenes[i].media;
+    const p = original.type === "video"
+      ? loadVideoWithReplacement({
+          media: original,
+          load: (media) => loadScene(media, signal),
+          replace: o.replaceVideo ? (blocked) => o.replaceVideo?.(blocked, i) ?? Promise.resolve(null) : undefined,
+          signal,
+        }).then(({ media, loaded: result }) => {
+          scenes[i].media = media;
+          if (media.key !== original.key) o.onVideoReplaced?.(media, i);
+          return result;
+        })
+      : loadScene(original, signal);
     loaded.set(i, p);
     p.then((l) => {
       if (loaded.get(i) === p) ready.set(i, l);
       else release(l);
-    });
+    }).catch((error) => { failure = error; });
   };
   const keepWindow = (cur: number, keepPrev: boolean) => {
     for (let i = cur; i <= cur + 2; i++) ensure(i);
@@ -181,7 +215,6 @@ export async function renderVideo(o: RenderOptions): Promise<RenderPart[]> {
         const l = ready.get(i);
         ready.delete(i);
         if (l) release(l);
-        else p.then(release);
       }
     }
   };
@@ -233,6 +266,7 @@ export async function renderVideo(o: RenderOptions): Promise<RenderPart[]> {
   const partCount = Math.max(1, Math.ceil(total / partLen - 1e-9));
   const parts: RenderPart[] = [];
 
+  try {
   for (let part = 0; part < partCount; part++) {
     if (signal.aborted) break;
     const pStart = part * partLen;
@@ -241,10 +275,7 @@ export async function renderVideo(o: RenderOptions): Promise<RenderPart[]> {
     // pré-carrega o início da parte
     const first = sceneAt(pStart);
     keepWindow(first, false);
-    await Promise.race([
-      Promise.all([first, first + 1].filter((i) => loaded.has(i)).map((i) => loaded.get(i))),
-      new Promise((r) => setTimeout(r, 30000)),
-    ]);
+    await Promise.all([first, first + 1].filter((i) => loaded.has(i)).map((i) => loaded.get(i)));
 
     const chunks: Blob[] = [];
     const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: o.bitrateMbps * 1_000_000 });
@@ -317,9 +348,20 @@ export async function renderVideo(o: RenderOptions): Promise<RenderPart[]> {
     rec.start(1000);
     await new Promise<void>((resolve) => {
       const tick = () => {
-        if (signal.aborted) return resolve();
+        if (signal.aborted || failure) return resolve();
         const now = performance.now();
-        if (!hidden) {
+        const nextTime = pStart + elapsed + Math.min(0.1, (now - last) / 1000);
+        const nextIndex = sceneAt(nextTime);
+        ensure(nextIndex);
+        const waiting = !ready.has(nextIndex) || (nextIndex > 0 && nextTime - scenes[nextIndex].start < o.crossfade && !ready.has(nextIndex - 1));
+        if (hidden || waiting) {
+          if (rec.state === "recording") rec.pause();
+          playing.forEach((v) => v.pause());
+        } else {
+          if (rec.state === "paused") {
+            rec.resume();
+            playing.forEach((v) => v.play().catch(() => {}));
+          }
           elapsed += Math.min(0.1, (now - last) / 1000);
           if (elapsed >= pDur) return resolve();
           frame(pStart + elapsed);
@@ -335,6 +377,7 @@ export async function renderVideo(o: RenderOptions): Promise<RenderPart[]> {
     playing.forEach((v) => v.pause());
     if (rec.state !== "inactive") rec.stop();
     await stopped;
+    if (failure) throw failure;
     if (signal.aborted) break;
     let blob = new Blob(chunks, { type: mime.split(";")[0] });
     chunks.length = 0;
@@ -350,10 +393,14 @@ export async function renderVideo(o: RenderOptions): Promise<RenderPart[]> {
     o.onPart?.(rp);
   }
 
+  return parts;
+  } finally {
   for (const [i] of loaded) {
     const l = ready.get(i);
     if (l) release(l);
   }
+  loaded.clear();
+  ready.clear();
   stream.getTracks().forEach((t) => t.stop());
-  return parts;
+  }
 }
