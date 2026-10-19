@@ -4,7 +4,7 @@ import type { Media } from "./pexelsClient";
 export async function loadVideoWithReplacement<T>(options: {
   media: Media;
   load: (media: Media) => Promise<T>;
-  replace?: (blocked: Media) => Promise<Media | null>;
+  replace?: ((blocked: Media) => Promise<Media | null>) | undefined;
   signal: AbortSignal;
 }): Promise<{ media: Media; loaded: T }> {
   let media = options.media;
