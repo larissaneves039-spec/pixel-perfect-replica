@@ -17,6 +17,7 @@ export interface ResolveOptions {
   random?: () => number;
   chainTimeoutMs?: number;
   slotTimeoutMs?: number;
+  videoOnly?: boolean;
 }
 
 export interface ResolvedSlot {
@@ -29,6 +30,7 @@ export interface ResolvedSlot {
 export type SlotOrigin = "clipe" | "foto" | "reaproveitada" | "falha";
 
 function typeOrder(opts: ResolveOptions, rnd: () => number): MediaType[] {
+  if (opts.videoOnly) return ["video"];
   if (opts.mode === "photo") return ["photo"];
   if (opts.mode === "video") return ["video", "photo"];
   return rnd() * 100 < opts.photoPct ? ["photo", "video"] : ["video", "photo"];
