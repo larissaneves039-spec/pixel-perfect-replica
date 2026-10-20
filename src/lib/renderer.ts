@@ -41,6 +41,7 @@ export interface RenderOptions {
   onPart?: (p: RenderPart) => void;
   replaceVideo?: (blocked: Media, sceneIndex: number) => Promise<Media | null>;
   onVideoReplaced?: (media: Media, sceneIndex: number) => void;
+  audio?: Blob | null;
   signal: AbortSignal;
 }
 
@@ -172,6 +173,29 @@ export async function renderVideo(o: RenderOptions): Promise<RenderPart[]> {
   if (!mime) throw new Error("Formato de vídeo não suportado.");
   const ext: "mp4" | "webm" = mime.includes("mp4") ? "mp4" : "webm";
   const stream = canvas.captureStream(30);
+  let audioEl: HTMLAudioElement | null = null;
+  let audioCtx: AudioContext | null = null;
+  let audioUrl = "";
+  if (o.audio) {
+    audioUrl = URL.createObjectURL(o.audio);
+    audioEl = new Audio(audioUrl);
+    audioEl.preload = "auto";
+    await new Promise<void>((res, rej) => {
+      audioEl!.oncanplaythrough = () => res();
+      audioEl!.onerror = () => rej(new Error("Não foi possível carregar o áudio."));
+    });
+    audioCtx = new AudioContext();
+    const dest = audioCtx.createMediaStreamDestination();
+    audioCtx.createMediaElementSource(audioEl).connect(dest);
+    dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
+    await audioCtx.resume();
+  }
+  const syncAudio = (t: number, play: boolean) => {
+    if (!audioEl) return;
+    if (!play) { audioEl.pause(); return; }
+    if (Math.abs(audioEl.currentTime - t) > 0.25) audioEl.currentTime = t;
+    if (audioEl.paused) audioEl.play().catch(() => {});
+  };
   const scanPattern = (() => {
     const c = document.createElement("canvas");
     c.width = 1;
@@ -278,7 +302,7 @@ export async function renderVideo(o: RenderOptions): Promise<RenderPart[]> {
     await Promise.all([first, first + 1].filter((i) => loaded.has(i)).map((i) => loaded.get(i)));
 
     const chunks: Blob[] = [];
-    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: o.bitrateMbps * 1_000_000 });
+    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: o.bitrateMbps * 1_000_000, ...(audioEl ? { audioBitsPerSecond: 192_000 } : {}) });
     rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
     const stopped = new Promise<void>((r) => (rec.onstop = () => r()));
 
@@ -355,6 +379,7 @@ export async function renderVideo(o: RenderOptions): Promise<RenderPart[]> {
         ensure(nextIndex);
         const waiting = !ready.has(nextIndex) || (nextIndex > 0 && nextTime - scenes[nextIndex].start < o.crossfade && !ready.has(nextIndex - 1));
         if (hidden || waiting) {
+          syncAudio(0, false);
           if (rec.state === "recording") rec.pause();
           playing.forEach((v) => v.pause());
         } else {
@@ -365,6 +390,7 @@ export async function renderVideo(o: RenderOptions): Promise<RenderPart[]> {
           elapsed += Math.min(0.1, (now - last) / 1000);
           if (elapsed >= pDur) return resolve();
           frame(pStart + elapsed);
+          syncAudio(pStart + elapsed, true);
           o.onProgress?.({ elapsed: pStart + elapsed, total, sceneIndex: current, part, parts: partCount });
         }
         last = now;
@@ -374,6 +400,7 @@ export async function renderVideo(o: RenderOptions): Promise<RenderPart[]> {
       // fallback se rAF for estrangulado
     });
     document.removeEventListener("visibilitychange", onVis);
+    syncAudio(0, false);
     playing.forEach((v) => v.pause());
     if (rec.state !== "inactive") rec.stop();
     await stopped;
@@ -402,5 +429,8 @@ export async function renderVideo(o: RenderOptions): Promise<RenderPart[]> {
   loaded.clear();
   ready.clear();
   stream.getTracks().forEach((t) => t.stop());
+  audioEl?.pause();
+  audioCtx?.close().catch(() => {});
+  if (audioUrl) URL.revokeObjectURL(audioUrl);
   }
 }

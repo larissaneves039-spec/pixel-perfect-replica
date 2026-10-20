@@ -78,7 +78,7 @@ export function buildQueries(opts: {
     seen.add(k);
     out.push({ q: q.trim(), locale });
   };
-  (opts.sectionKeywords ?? []).forEach((kw, i) => push(kw, "en-US"));
+  (opts.sectionKeywords ?? []).forEach((kw) => push(kw, "en-US"));
   (opts.sectionKeywords ?? []).forEach((kw, i) => push(`${kw} ${mod(i)}`, "en-US"));
   keywords.forEach((kw, i) => push(`${kw} ${mod(i)}`, userLocale));
   if (short) push(`${short} ${mod(0)}`, userLocale);
