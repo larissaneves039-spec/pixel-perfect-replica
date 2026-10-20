@@ -4,6 +4,7 @@ export type Format = "16:9" | "9:16" | "1:1";
 export interface SectionInput {
   description: string;
   weight: number;
+  keywords?: string[];
 }
 export interface FormState {
   hours: number;
@@ -23,6 +24,7 @@ export interface FormState {
   scanlines: boolean;
   bitrate: 5 | 8 | 12;
   partMinutes: 0 | 5 | 10 | 20 | 30;
+  includeAudio: boolean;
 }
 
 export const DEFAULT_FORM: FormState = {
@@ -43,6 +45,7 @@ export const DEFAULT_FORM: FormState = {
   scanlines: false,
   bitrate: 8,
   partMinutes: 20,
+  includeAudio: true,
 };
 
 export const FORMAT_SIZE: Record<Format, { w: number; h: number; orientation: "landscape" | "portrait"; minWidth: number }> = {
@@ -96,4 +99,12 @@ export function fmtTime(s: number): string {
   const ss = s % 60;
   const p = (n: number) => String(n).padStart(2, "0");
   return h ? `${h}:${p(m)}:${p(ss)}` : `${p(m)}:${p(ss)}`;
+}
+
+const GKEY = "bgvideo.geminiKey";
+export function loadGeminiKey(): string {
+  try { return localStorage.getItem(GKEY) ?? ""; } catch { return ""; }
+}
+export function saveGeminiKey(k: string) {
+  try { localStorage.setItem(GKEY, k); } catch { /* ignore */ }
 }

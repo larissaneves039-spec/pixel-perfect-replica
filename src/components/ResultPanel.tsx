@@ -44,7 +44,7 @@ export function ResultPanel(props: { parts: RenderPart[]; slots: ResolvedSlot[];
         <Button variant="secondary" onClick={credits}><FileText /> Baixar créditos (.txt)</Button>
         <Button variant="ghost" onClick={props.onRestart}>Criar outro</Button>
       </div>
-      <p className="text-xs text-muted-foreground">Formato: {props.parts[0]?.ext.toUpperCase()} · sem áudio</p>
+      <p className="text-xs text-muted-foreground">Formato: {props.parts[0]?.ext.toUpperCase()}</p>
     </div>
   );
 }
