@@ -57,7 +57,7 @@ export function buildQueries(opts: {
   sectionText: string;
   tone: string;
   keywords: string[];
-  sectionKeywords?: string[];
+  sectionKeywords?: string[] | undefined;
   slotIndex: number;
   userLocale: string;
   random?: () => number;
