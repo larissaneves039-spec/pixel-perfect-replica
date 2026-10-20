@@ -8,11 +8,12 @@ import { GeneratorForm } from "@/components/GeneratorForm";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { ReviewPanel } from "@/components/ReviewPanel";
 import { ResultPanel } from "@/components/ResultPanel";
-import { DEFAULT_FORM, FORMAT_SIZE, fmtTime, loadForm, loadKey, saveForm, saveKey, totalSeconds, type FormState } from "@/lib/formState";
+import { DEFAULT_FORM, FORMAT_SIZE, fmtTime, MIN_TOTAL, MAX_TOTAL, loadForm, loadKey, saveForm, saveKey, loadGeminiKey, saveGeminiKey, totalSeconds, type FormState } from "@/lib/formState";
 import { planSlots, type Slot } from "@/lib/slotPlanner";
 import { buildQueries } from "@/lib/queryBuilder";
 import { PexelsClient, PexelsError } from "@/lib/pexelsClient";
 import { resolveAll, resolveSlot, type ResolvedSlot } from "@/lib/mediaResolver";
+import { analyzeAudio, audioDuration, sectionsFromAnalysis } from "@/lib/gemini";
 import { renderVideo, supportCheck, type RenderPart, type RenderProgress } from "@/lib/renderer";
 
 export const Route = createFileRoute("/")({
@@ -34,6 +35,10 @@ type Step = "form" | "review" | "render" | "result";
 function Index() {
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [apiKey, setApiKey] = useState("");
+  const [geminiKey, setGeminiKey] = useState("");
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [audioDur, setAudioDur] = useState(0);
+  const [analyzing, setAnalyzing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [step, setStep] = useState<Step>("form");
   const [busy, setBusy] = useState(false);
@@ -57,6 +62,7 @@ function Index() {
   useEffect(() => {
     setForm(loadForm());
     setApiKey(loadKey());
+    setGeminiKey(loadGeminiKey());
     setSupport(supportCheck());
   }, []);
   useEffect(() => saveForm(form), [form]);
@@ -64,7 +70,35 @@ function Index() {
   const fmt = FORMAT_SIZE[form.format];
   const opts = { orientation: fmt.orientation, mode: form.mode, photoPct: form.photoPct };
   const queriesFor = (s: Slot) =>
-    buildQueries({ theme: form.theme, sectionText: form.sections[s.sectionIndex]?.description ?? "", tone: form.tone, keywords: form.keywords, slotIndex: s.index, userLocale: form.locale });
+    buildQueries({ theme: form.theme, sectionText: form.sections[s.sectionIndex]?.description ?? "", sectionKeywords: form.sections[s.sectionIndex]?.keywords, tone: form.tone, keywords: form.keywords, slotIndex: s.index, userLocale: form.locale });
+
+  const pickAudio = async (file: File) => {
+    if (!geminiKey) {
+      setSettingsOpen(true);
+      toast.error("Cole sua chave do Gemini primeiro.");
+      return;
+    }
+    setAnalyzing(true);
+    try {
+      const dur = await audioDuration(file);
+      if (dur < MIN_TOTAL || dur > MAX_TOTAL) throw new Error("O áudio precisa ter entre 10 segundos e 3 horas.");
+      const total = Math.ceil(dur);
+      const a = await analyzeAudio(geminiKey, file, dur, form.locale);
+      setAudioFile(file);
+      setAudioDur(dur);
+      setForm((f) => ({
+        ...f,
+        hours: Math.floor(total / 3600), minutes: Math.floor((total % 3600) / 60), seconds: total % 60,
+        theme: a.theme || f.theme, tone: a.tone, keywords: a.keywords.slice(0, 6),
+        sections: sectionsFromAnalysis(a.sections, total),
+      }));
+      toast.success("Áudio analisado! Revise o tema e as seções.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao analisar o áudio.");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   const getClient = (fresh: boolean) => {
     if (fresh || !clientRef.current) clientRef.current = new PexelsClient(apiKey, fmt.minWidth, form.quality, setRequests);
@@ -180,6 +214,7 @@ function Index() {
           setSlots((previous) => previous.map((s, j) => j === i ? { ...s, media, reused: false } : s));
           toast(`Cena ${i + 1}: clipe bloqueado substituído por outro vídeo.`);
         },
+        audio: audioFile && form.includeAudio ? audioFile : null,
         crossfade: form.crossfade,
         scanlines: form.scanlines,
         bitrateMbps: form.bitrate,
@@ -223,7 +258,8 @@ function Index() {
 
         {step === "form" && (
           <>
-            <GeneratorForm form={form} onChange={setForm} onSubmit={() => resolveRun("new")} busy={busy} />
+            <GeneratorForm form={form} onChange={setForm} onSubmit={() => resolveRun("new")} busy={busy}
+              audio={{ name: audioFile?.name ?? null, duration: audioDur, analyzing, onPick: pickAudio, onClear: () => { setAudioFile(null); setAudioDur(0); } }} />
             {busy && <BusyBar msg={progressMsg} pct={progressPct} requests={requests} />}
           </>
         )}
@@ -252,7 +288,7 @@ function Index() {
         <a href="https://www.pexels.com" target="_blank" rel="noreferrer" className="hover:text-primary">Mídias fornecidas por Pexels</a>
       </footer>
 
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} value={apiKey} onSave={(k) => { setApiKey(k); saveKey(k); clientRef.current = null; }} />
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} value={apiKey} geminiValue={geminiKey} onSave={(k, g) => { setApiKey(k); saveKey(k); setGeminiKey(g); saveGeminiKey(g); clientRef.current = null; }} />
     </div>
   );
 }

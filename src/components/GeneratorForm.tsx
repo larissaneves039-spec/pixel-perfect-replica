@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, Plus, X } from "lucide-react";
+import { ChevronDown, Plus, X, Music, Loader2 } from "lucide-react";
 import { TONES } from "@/lib/tables";
 import { planSlots } from "@/lib/slotPlanner";
 import { type FormState, totalSeconds, MIN_TOTAL, MAX_TOTAL } from "@/lib/formState";
@@ -39,7 +39,15 @@ function Field({ label, children, hint }: { label: string; children: React.React
   );
 }
 
-export function GeneratorForm(props: { form: FormState; onChange: (f: FormState) => void; onSubmit: () => void; busy: boolean }) {
+export interface AudioProps {
+  name: string | null;
+  duration: number;
+  analyzing: boolean;
+  onPick: (file: File) => void;
+  onClear: () => void;
+}
+
+export function GeneratorForm(props: { form: FormState; onChange: (f: FormState) => void; onSubmit: () => void; busy: boolean; audio: AudioProps }) {
   const f = props.form;
   const set = (p: Partial<FormState>) => props.onChange({ ...f, ...p });
   const [kw, setKw] = useState("");
@@ -53,21 +61,52 @@ export function GeneratorForm(props: { form: FormState; onChange: (f: FormState)
     setKw("");
   };
 
+  const a = props.audio;
+  const locked = !!a.name;
   return (
-    <form className="panel space-y-7 p-6 md:p-8" onSubmit={(e) => { e.preventDefault(); if (valid) props.onSubmit(); }}>
+    <form className="panel space-y-7 p-6 md:p-8" onSubmit={(e) => { e.preventDefault(); if (valid && !a.analyzing) props.onSubmit(); }}>
+      <div className="space-y-3 rounded-md border border-dashed border-border p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Music className="size-5 text-primary" />
+            <div>
+              <div className="font-semibold">{a.name ?? "Enviar áudio (opcional)"}</div>
+              <div className="text-xs text-muted-foreground">
+                {a.analyzing ? <span className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin" /> O Gemini está ouvindo o áudio…</span>
+                  : a.name ? `Duração ${Math.floor(a.duration / 60)}:${String(Math.round(a.duration % 60)).padStart(2, "0")} · tema, seções e palavras-chave preenchidos pelo Gemini`
+                  : "MP3, WAV, M4A ou OGG até 15 MB. O Gemini define duração, tema e seções."}
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" variant="secondary" size="sm" asChild disabled={a.analyzing}>
+              <label className="cursor-pointer">
+                {a.name ? "Trocar áudio" : "Escolher áudio"}
+                <input type="file" accept="audio/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) a.onPick(file); }} />
+              </label>
+            </Button>
+            {a.name && <Button type="button" variant="ghost" size="sm" onClick={a.onClear} disabled={a.analyzing}><X /> Remover</Button>}
+          </div>
+        </div>
+        {a.name && (
+          <label className="flex items-center gap-2 text-sm">
+            <Switch checked={f.includeAudio} onCheckedChange={(v) => set({ includeAudio: v })} /> Incluir o áudio no vídeo final
+          </label>
+        )}
+      </div>
       <div className="grid gap-7 md:grid-cols-2">
         <Field label="Duração do vídeo" hint={total > 1800 ? <span className="text-warning">A renderização acontece em tempo real: um vídeo de {Math.round(total / 60)} min leva cerca de {Math.round(total / 60)} min para ficar pronto.</span> : total < MIN_TOTAL ? "Mínimo de 10 segundos." : total > MAX_TOTAL ? "Máximo de 3 horas." : null}>
           <div className="flex items-center gap-2">
             {([["hours", "h"], ["minutes", "min"], ["seconds", "s"]] as const).map(([k, l]) => (
               <div key={k} className="flex items-center gap-1">
-                <Input type="number" min={0} max={k === "hours" ? 3 : 59} className="w-20" value={f[k]} onChange={(e) => set({ [k]: Math.max(0, Number(e.target.value) || 0) })} aria-label={l} />
+                <Input type="number" disabled={locked} min={0} max={k === "hours" ? 3 : 59} className="w-20" value={f[k]} onChange={(e) => set({ [k]: Math.max(0, Number(e.target.value) || 0) })} aria-label={l} />
                 <span className="text-sm text-muted-foreground">{l}</span>
               </div>
             ))}
           </div>
           <div className="flex flex-wrap gap-1.5">
             {PRESETS.map(([l, s]) => (
-              <button key={l} type="button" onClick={() => setTotal(s)} className={cn("rounded-full border px-2.5 py-0.5 text-xs", total === s ? "border-primary text-primary" : "border-border text-muted-foreground hover:text-foreground")}>{l}</button>
+              <button key={l} type="button" disabled={locked} onClick={() => setTotal(s)} className={cn("rounded-full border px-2.5 py-0.5 text-xs", total === s ? "border-primary text-primary" : "border-border text-muted-foreground hover:text-foreground")}>{l}</button>
             ))}
           </div>
         </Field>
@@ -138,7 +177,7 @@ export function GeneratorForm(props: { form: FormState; onChange: (f: FormState)
             <div className="space-y-2">
               {f.sections.map((s, i) => (
                 <div key={i} className="flex gap-2">
-                  <Input value={s.description} placeholder="Descrição da seção" onChange={(e) => set({ sections: f.sections.map((x, j) => (j === i ? { ...x, description: e.target.value } : x)) })} />
+                  <Input value={s.description} title={s.keywords?.join(", ")} placeholder="Descrição da seção" onChange={(e) => set({ sections: f.sections.map((x, j) => (j === i ? { ...x, description: e.target.value } : x)) })} />
                   <Input type="number" min={1} max={100} className="w-20" value={s.weight} aria-label="Peso %" onChange={(e) => set({ sections: f.sections.map((x, j) => (j === i ? { ...x, weight: Number(e.target.value) || 0 } : x)) })} />
                   <Button type="button" variant="ghost" size="icon" onClick={() => set({ sections: f.sections.filter((_, j) => j !== i) })} aria-label="Remover seção"><X /></Button>
                 </div>
@@ -162,7 +201,7 @@ export function GeneratorForm(props: { form: FormState; onChange: (f: FormState)
       </Collapsible>
 
       <Button type="submit" size="lg" className="w-full font-semibold" disabled={!valid || props.busy}>
-        {props.busy ? "Buscando mídias…" : "Escolher mídias no Pexels"}
+        {a.analyzing ? "Analisando áudio…" : props.busy ? "Buscando mídias…" : "Escolher mídias no Pexels"}
       </Button>
     </form>
   );
