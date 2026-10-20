@@ -20,9 +20,9 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Gerador de Vídeo de Fundo — mídias do Pexels" },
-      { name: "description", content: "Gere vídeos de fundo sem áudio com clipes e fotos do Pexels, sem repetir mídias, direto no navegador." },
+      { name: "description", content: "Gere vídeos de fundo com clipes e fotos do Pexels, sem repetir mídias, direto no navegador." },
       { property: "og:title", content: "Gerador de Vídeo de Fundo — mídias do Pexels" },
-      { property: "og:description", content: "Escolha duração e tema; o app monta um vídeo de fundo com mídias do Pexels sem repetição." },
+      { property: "og:description", content: "Envie um áudio ou escolha duração e tema; o app monta um vídeo de fundo com mídias do Pexels sem repetição." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
