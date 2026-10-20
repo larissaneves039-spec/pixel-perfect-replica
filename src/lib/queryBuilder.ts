@@ -57,6 +57,7 @@ export function buildQueries(opts: {
   sectionText: string;
   tone: string;
   keywords: string[];
+  sectionKeywords?: string[];
   slotIndex: number;
   userLocale: string;
   random?: () => number;
@@ -77,6 +78,8 @@ export function buildQueries(opts: {
     seen.add(k);
     out.push({ q: q.trim(), locale });
   };
+  (opts.sectionKeywords ?? []).forEach((kw, i) => push(kw, "en-US"));
+  (opts.sectionKeywords ?? []).forEach((kw, i) => push(`${kw} ${mod(i)}`, "en-US"));
   keywords.forEach((kw, i) => push(`${kw} ${mod(i)}`, userLocale));
   if (short) push(`${short} ${mod(0)}`, userLocale);
   for (let i = 0; i < Math.min(5, visuals.length * mods.length); i++) {
