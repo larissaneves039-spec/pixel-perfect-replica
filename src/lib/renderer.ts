@@ -56,8 +56,10 @@ export function supportCheck(): string | null {
   return null;
 }
 
-export function pickMime(): string | null {
-  for (const m of MIME_ORDER) if (MediaRecorder.isTypeSupported(m)) return m;
+const MIME_AUDIO = ["video/mp4;codecs=avc1,mp4a.40.2", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus"];
+
+export function pickMime(withAudio = false): string | null {
+  for (const m of withAudio ? [...MIME_AUDIO, ...MIME_ORDER] : MIME_ORDER) if (MediaRecorder.isTypeSupported(m)) return m;
   return null;
 }
 
@@ -169,7 +171,7 @@ export async function renderVideo(o: RenderOptions): Promise<RenderPart[]> {
   canvas.height = H;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Não foi possível preparar o vídeo.");
-  const mime = pickMime();
+  const mime = pickMime(!!o.audio);
   if (!mime) throw new Error("Formato de vídeo não suportado.");
   const ext: "mp4" | "webm" = mime.includes("mp4") ? "mp4" : "webm";
   const stream = canvas.captureStream(30);
