@@ -16,3 +16,10 @@ describe("seções a partir do áudio", () => {
     expect(q.variants[0].q).toBe("ocean waves");
   });
 });
+
+import { audioMime } from "@/lib/gemini";
+describe("tipo de áudio", () => {
+  it("arquivo .mp4 é enviado como audio/mp4", () => {
+    expect(audioMime(new File([""], "voz.mp4", { type: "video/mp4" }))).toBe("audio/mp4");
+  });
+});
