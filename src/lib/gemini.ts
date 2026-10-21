@@ -75,7 +75,7 @@ Escute, entenda o assunto e a linha lógica, e divida em seções na ordem do á
 Para cada seção dê uma descrição curta (${locale === "pt-BR" ? "em português" : "em inglês"}) e 2 a 5 palavras-chave visuais concretas EM INGLÊS, boas para buscar vídeos de banco (ex.: "ocean waves", "city night").
 Dê também o tema geral curto (${locale === "pt-BR" ? "em português" : "em inglês"}), palavras-chave gerais em inglês e o tom visual mais adequado.`;
   const json = await call(key, {
-    contents: [{ parts: [{ inline_data: { mime_type: file.type || "audio/mpeg", data } }, { text: prompt }] }],
+    contents: [{ parts: [{ inline_data: { mime_type: audioMime(file), data } }, { text: prompt }] }],
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -117,4 +117,12 @@ export function audioDuration(file: File): Promise<number> {
     a.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Não foi possível ler este áudio.")); };
     a.src = url;
   });
+}
+
+/** Tipo de áudio aceito pelo Gemini; arquivos .mp4 são enviados como audio/mp4. */
+export function audioMime(file: File): string {
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  const byExt: Record<string, string> = { mp4: "audio/mp4", m4a: "audio/mp4", mp3: "audio/mpeg", wav: "audio/wav", ogg: "audio/ogg", aac: "audio/aac", webm: "audio/webm" };
+  if (file.type.startsWith("audio/")) return file.type;
+  return byExt[ext] ?? "audio/mp4";
 }

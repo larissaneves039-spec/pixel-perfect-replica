@@ -74,7 +74,7 @@ export function GeneratorForm(props: { form: FormState; onChange: (f: FormState)
               <div className="text-xs text-muted-foreground">
                 {a.analyzing ? <span className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin" /> O Gemini está ouvindo o áudio…</span>
                   : a.name ? `Duração ${Math.floor(a.duration / 60)}:${String(Math.round(a.duration % 60)).padStart(2, "0")} · tema, seções e palavras-chave preenchidos pelo Gemini`
-                  : "MP3, WAV, M4A ou OGG até 15 MB. O Gemini define duração, tema e seções."}
+                  : "MP3, MP4, WAV, M4A ou OGG até 15 MB. O Gemini define duração, tema e seções."}
               </div>
             </div>
           </div>
@@ -82,7 +82,7 @@ export function GeneratorForm(props: { form: FormState; onChange: (f: FormState)
             <Button type="button" variant="secondary" size="sm" asChild disabled={a.analyzing}>
               <label className="cursor-pointer">
                 {a.name ? "Trocar áudio" : "Escolher áudio"}
-                <input type="file" accept="audio/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) a.onPick(file); }} />
+                <input type="file" accept="audio/*,video/mp4,.mp4,.m4a,.mp3,.wav,.ogg,.aac,.webm" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) a.onPick(file); }} />
               </label>
             </Button>
             {a.name && <Button type="button" variant="ghost" size="sm" onClick={a.onClear} disabled={a.analyzing}><X /> Remover</Button>}
