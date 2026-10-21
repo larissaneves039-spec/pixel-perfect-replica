@@ -23,3 +23,18 @@ describe("tipo de áudio", () => {
     expect(audioMime(new File([""], "voz.mp4", { type: "video/mp4" }))).toBe("audio/mp4");
   });
 });
+
+import { chooseModel } from "@/lib/gemini";
+describe("escolha do modelo Gemini", () => {
+  it("prefere o Flash estável mais novo", () => {
+    const g = ["generateContent"];
+    expect(chooseModel([
+      { name: "models/gemini-2.0-flash", supportedGenerationMethods: g },
+      { name: "models/gemini-3-flash", supportedGenerationMethods: g },
+      { name: "models/gemini-3.5-flash-preview", supportedGenerationMethods: g },
+      { name: "models/gemini-3-pro", supportedGenerationMethods: g },
+      { name: "models/gemini-3-flash-tts", supportedGenerationMethods: g },
+      { name: "models/gemini-embedding-2", supportedGenerationMethods: ["embedContent"] },
+    ])).toBe("gemini-3-flash");
+  });
+});

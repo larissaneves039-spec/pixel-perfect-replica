@@ -14,8 +14,8 @@ export function SettingsDialog(props: { open: boolean; onOpenChange: (o: boolean
   const runG = async () => {
     setGtesting(true);
     try {
-      await testGeminiKey(gkey.trim());
-      toast.success("Chave do Gemini válida!");
+      const model = await testGeminiKey(gkey.trim());
+      toast.success(`Chave do Gemini válida! Modelo usado: ${model}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao testar a chave.");
     } finally {
