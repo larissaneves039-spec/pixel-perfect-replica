@@ -46,25 +46,30 @@ const MODEL_KEY = "bgvideo.geminiModel";
 
 interface ModelInfo { name: string; supportedGenerationMethods?: string[] }
 
-/** Escolhe o melhor modelo de texto/áudio disponível: Flash estável mais novo, depois preview, depois Pro. */
-export function chooseModel(models: ModelInfo[]): string | null {
+/** Ordena os modelos de texto/áudio disponíveis: Flash estável mais novo, depois preview, depois Pro. */
+export function rankModels(models: ModelInfo[]): string[] {
   const ok = models
     .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))
     .map((m) => m.name.replace(/^models\//, ""))
     .filter((n) => n.startsWith("gemini-") && !/(tts|image|live|embedding|lite|audio|robotics|computer|thinking|exp|nano|learnlm|gemma)/.test(n));
   const ver = (n: string) => parseFloat(n.match(/gemini-(\d+(?:\.\d+)?)/)?.[1] ?? "0");
   const score = (n: string) => (n.includes("flash") ? 2000 : n.includes("pro") ? 1000 : 0) + (n.includes("preview") ? 0 : 500) + (/-latest$/.test(n) ? -1 : 0) + ver(n) * 10;
-  ok.sort((a, b) => score(b) - score(a) || a.length - b.length);
-  return ok[0] ?? null;
+  return [...new Set(ok)].sort((a, b) => score(b) - score(a) || a.length - b.length);
+}
+export function chooseModel(models: ModelInfo[]): string | null {
+  return rankModels(models)[0] ?? null;
 }
 
 async function errorDetail(r: Response): Promise<string> {
   try { return (await r.json())?.error?.message ?? ""; } catch { return ""; }
 }
 
-export async function pickModel(key: string, fresh = false): Promise<string> {
+export async function pickModels(key: string, fresh = false): Promise<string[]> {
   if (!fresh) {
-    try { const c = localStorage.getItem(MODEL_KEY); if (c) return c; } catch { /* ignore */ }
+    try {
+      const c = JSON.parse(localStorage.getItem(MODEL_KEY) ?? "null");
+      if (Array.isArray(c) && c.length) return c;
+    } catch { /* ignore */ }
   }
   const r = await fetch(`${BASE}/models?pageSize=1000`, { headers: { "x-goog-api-key": key } });
   if (!r.ok) {
@@ -72,29 +77,52 @@ export async function pickModel(key: string, fresh = false): Promise<string> {
     if (r.status === 400 || r.status === 401 || r.status === 403) throw new GeminiError(`Chave do Gemini inválida ou sem permissão${d ? `: ${d}` : "."}`);
     throw new GeminiError(`Não foi possível listar os modelos do Gemini (${r.status})${d ? `: ${d}` : "."}`);
   }
-  const m = chooseModel((await r.json())?.models ?? []);
-  if (!m) throw new GeminiError("Nenhum modelo do Gemini disponível para esta chave.");
-  try { localStorage.setItem(MODEL_KEY, m); } catch { /* ignore */ }
-  return m;
+  const list = rankModels((await r.json())?.models ?? []);
+  if (!list.length) throw new GeminiError("Nenhum modelo do Gemini disponível para esta chave.");
+  try { localStorage.setItem(MODEL_KEY, JSON.stringify(list)); } catch { /* ignore */ }
+  return list;
 }
 
-async function call(key: string, body: unknown): Promise<{ json: any; model: string }> {
-  let model = await pickModel(key);
+export const OVERLOAD_DELAYS = [2000, 5000, 10000];
+const MAX_EXTRA_MODELS = 2;
+let sleep = (ms: number) => new Promise<void>((res) => setTimeout(res, ms + Math.random() * 500));
+/** Só para testes. */
+export function __setSleep(fn: (ms: number) => Promise<void>) { sleep = fn; }
+
+export async function call(key: string, body: unknown, onStatus?: (msg: string) => void): Promise<{ json: any; model: string }> {
+  let models = await pickModels(key);
   let refreshed = false;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  let mi = 0;
+  let overloadTries = 0;
+  let rateTried = false;
+  while (mi < models.length && mi <= MAX_EXTRA_MODELS) {
+    const model = models[mi];
     const r = await fetch(`${BASE}/models/${model}:generateContent`, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": key }, body: JSON.stringify(body) });
     if (r.ok) return { json: await r.json(), model };
     const detail = await errorDetail(r);
+    const why = detail ? ` Detalhe: ${detail}` : "";
     if (r.status === 404 && !refreshed) {
       refreshed = true;
-      model = await pickModel(key, true);
+      models = await pickModels(key, true);
+      mi = 0;
       continue;
     }
-    if (r.status === 429 && attempt === 0) {
-      await new Promise((res) => setTimeout(res, 5000));
+    if (r.status === 500 || r.status === 503) {
+      if (overloadTries < OVERLOAD_DELAYS.length) {
+        onStatus?.("Gemini ocupado, tentando de novo…");
+        await sleep(OVERLOAD_DELAYS[overloadTries++]);
+        continue;
+      }
+      overloadTries = 0;
+      mi++;
+      if (mi < models.length && mi <= MAX_EXTRA_MODELS) onStatus?.(`Gemini ocupado, tentando outro modelo (${models[mi]})…`);
       continue;
     }
-    const why = detail ? ` Detalhe: ${detail}` : "";
+    if (r.status === 429 && !rateTried) {
+      rateTried = true;
+      await sleep(5000);
+      continue;
+    }
     if (r.status === 400 && /api key/i.test(detail)) throw new GeminiError("Chave do Gemini inválida.");
     if (r.status === 400) throw new GeminiError(`O Gemini recusou o pedido.${why}`);
     if (r.status === 401 || r.status === 403) throw new GeminiError(`Chave do Gemini sem permissão.${why}`);
@@ -102,7 +130,7 @@ async function call(key: string, body: unknown): Promise<{ json: any; model: str
     if (r.status === 429) throw new GeminiError(`O Gemini respondeu com limite de uso (429).${why}`);
     throw new GeminiError(`Erro no Gemini (${r.status}).${why}`);
   }
-  throw new GeminiError("O Gemini não respondeu. Tente novamente.");
+  throw new GeminiError("Os servidores do Gemini estão sobrecarregados agora (não é problema da sua chave nem da sua cota). Tente novamente em alguns minutos.");
 }
 
 export async function testGeminiKey(key: string): Promise<string> {
@@ -110,7 +138,7 @@ export async function testGeminiKey(key: string): Promise<string> {
   return model;
 }
 
-export async function analyzeAudio(key: string, file: File, duration: number, locale: string): Promise<AudioAnalysis> {
+export async function analyzeAudio(key: string, file: File, duration: number, locale: string, onStatus?: (msg: string) => void): Promise<AudioAnalysis> {
   if (file.size > MAX_AUDIO_BYTES) throw new GeminiError("Áudio muito grande (máx. 15 MB).");
   const data = await toBase64(file);
   const tones = TONES.map((t) => t.key);
@@ -140,7 +168,7 @@ Dê também o tema geral curto (${locale === "pt-BR" ? "em português" : "em ing
         required: ["theme", "tone", "keywords", "sections"],
       },
     },
-  });
+  }, onStatus);
   const text = json?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? "").join("") ?? "";
   if (!text) throw new GeminiError("O Gemini não conseguiu analisar este áudio.");
   try {
