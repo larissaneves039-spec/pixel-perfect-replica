@@ -38,3 +38,30 @@ describe("escolha do modelo Gemini", () => {
     ])).toBe("gemini-3-flash");
   });
 });
+
+import { call, __setSleep, rankModels } from "@/lib/gemini";
+import { vi } from "vitest";
+describe("Gemini sobrecarregado", () => {
+  it("ordem dos modelos: flash estável, flash preview, pro", () => {
+    const g = ["generateContent"];
+    expect(rankModels([
+      { name: "models/gemini-3-pro", supportedGenerationMethods: g },
+      { name: "models/gemini-3.5-flash-preview", supportedGenerationMethods: g },
+      { name: "models/gemini-3-flash", supportedGenerationMethods: g },
+    ])).toEqual(["gemini-3-flash", "gemini-3.5-flash-preview", "gemini-3-pro"]);
+  });
+  it("após 503 repetidos no primeiro modelo, passa para o segundo", async () => {
+    __setSleep(async () => {});
+    localStorage.setItem("bgvideo.geminiModel", JSON.stringify(["m1", "m2"]));
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (u: string) => {
+      urls.push(u);
+      if (u.includes("m1")) return new Response(JSON.stringify({ error: { message: "high demand" } }), { status: 503 });
+      return new Response(JSON.stringify({ ok: 1 }), { status: 200 });
+    }));
+    const r = await call("k", {});
+    expect(r.model).toBe("m2");
+    expect(urls.filter((u) => u.includes("m1")).length).toBe(4);
+    vi.unstubAllGlobals();
+  });
+});

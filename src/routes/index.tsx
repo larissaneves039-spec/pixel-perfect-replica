@@ -83,7 +83,7 @@ function Index() {
       const dur = await audioDuration(file);
       if (dur < MIN_TOTAL || dur > MAX_TOTAL) throw new Error("O áudio precisa ter entre 10 segundos e 3 horas.");
       const total = Math.ceil(dur);
-      const a = await analyzeAudio(geminiKey, file, dur, form.locale);
+      const a = await analyzeAudio(geminiKey, file, dur, form.locale, (m) => toast.info(m, { id: "gemini-status" }));
       setAudioFile(file);
       setAudioDur(dur);
       setForm((f) => ({
