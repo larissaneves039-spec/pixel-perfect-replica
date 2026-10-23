@@ -14,13 +14,116 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      folders: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      videos: {
+        Row: {
+          audio_path: string | null
+          created_at: string
+          error: string | null
+          folder_id: string
+          id: string
+          locked_at: string | null
+          output_paths: string[]
+          scenes: Json
+          settings: Json
+          status: string
+          title: string
+          total_seconds: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          audio_path?: string | null
+          created_at?: string
+          error?: string | null
+          folder_id: string
+          id?: string
+          locked_at?: string | null
+          output_paths?: string[]
+          scenes: Json
+          settings: Json
+          status?: string
+          title: string
+          total_seconds: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          audio_path?: string | null
+          created_at?: string
+          error?: string | null
+          folder_id?: string
+          id?: string
+          locked_at?: string | null
+          output_paths?: string[]
+          scenes?: Json
+          settings?: Json
+          status?: string
+          title?: string
+          total_seconds?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "videos_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      claim_video_job: {
+        Args: never
+        Returns: {
+          audio_path: string | null
+          created_at: string
+          error: string | null
+          folder_id: string
+          id: string
+          locked_at: string | null
+          output_paths: string[]
+          scenes: Json
+          settings: Json
+          status: string
+          title: string
+          total_seconds: number
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "videos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       [_ in never]: never
