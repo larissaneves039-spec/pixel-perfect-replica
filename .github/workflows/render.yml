@@ -1,0 +1,35 @@
+name: Render worker
+
+on:
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: render-worker
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Instalar dependências
+        run: bun install
+      - name: Build do app
+        run: bun run build
+      - name: Instalar Chrome para Playwright
+        run: bunx playwright install chrome --with-deps
+      - name: Subir preview do app
+        run: |
+          nohup bunx vite preview --host --port 4173 > preview.log 2>&1 &
+      - name: Renderizar fila
+        env:
+          APP_URL: http://localhost:4173
+          WORKER_SECRET: ${{ secrets.WORKER_SECRET }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+        run: bun run scripts/render-worker.ts
