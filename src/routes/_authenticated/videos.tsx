@@ -69,7 +69,7 @@ function VideosPage() {
 
   const refreshFolders = useCallback(async () => {
     try {
-      const rows = (await listFolders({ data: {} })) as FolderRow[];
+      const rows = (await listFolders()) as FolderRow[];
       setFolders(rows);
       setSelected((cur) => cur ?? rows[0]?.id ?? null);
     } catch (e) {

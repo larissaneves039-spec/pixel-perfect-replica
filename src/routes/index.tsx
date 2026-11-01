@@ -426,7 +426,7 @@ function FolderPickerDialog(props: {
   useEffect(() => {
     if (!props.open) return;
     setLoading(true);
-    listFolders({ data: {} })
+    listFolders()
       .then((rows) => setFolders(rows as { id: string; name: string }[]))
       .catch((e) => toast.error(e instanceof Error ? e.message : "Erro ao carregar pastas."))
       .finally(() => setLoading(false));

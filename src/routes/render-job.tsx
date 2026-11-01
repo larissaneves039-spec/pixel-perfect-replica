@@ -8,7 +8,6 @@ import { resolveSlot } from "@/lib/mediaResolver";
 import { buildQueries } from "@/lib/queryBuilder";
 import { renderVideo, type Scene, type RenderPart, type RenderProgress } from "@/lib/renderer";
 import { partCountFor, partFileName, type StoredScene, type StoredSettings } from "@/lib/queue";
-import { fmtTime } from "@/lib/formState";
 
 // Página usada pelo worker do GitHub Actions: recebe o trabalho pela
 // localStorage (gravada pelo script), renderiza e baixa cada parte.
@@ -98,21 +97,23 @@ function RenderJobPage() {
           height: s.h,
           total: s.total || job.video.total_seconds,
           scenes,
-          replaceVideo: client
-            ? async (blocked, i) => {
-                used.add(blocked.key);
-                const q = buildQueries({
-                  theme: s.theme,
-                  sectionText: "",
-                  sectionKeywords: undefined,
-                  tone: s.tone,
-                  keywords: [],
-                  slotIndex: i,
-                  userLocale: s.locale,
-                });
-                return resolveSlot(client, q, { ...opts, videoOnly: true }, used, new Set([blocked.key]));
+          ...(client
+            ? {
+                replaceVideo: async (blocked: Media, i: number) => {
+                  used.add(blocked.key);
+                  const q = buildQueries({
+                    theme: s.theme,
+                    sectionText: "",
+                    sectionKeywords: undefined,
+                    tone: s.tone,
+                    keywords: [],
+                    slotIndex: i,
+                    userLocale: s.locale,
+                  });
+                  return resolveSlot(client, q, { ...opts, videoOnly: true }, used, new Set([blocked.key]));
+                },
               }
-            : undefined,
+            : {}),
           onVideoReplaced: () => {},
           audio,
           crossfade: s.crossfade,
