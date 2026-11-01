@@ -1,6 +1,6 @@
 import type { ResolvedSlot } from "./mediaResolver";
 import type { Media } from "./pexelsClient";
-import type { FormState, FORMAT_SIZE } from "./formState";
+import { FORMAT_SIZE, type FormState } from "./formState";
 import type { MediaMode } from "./mediaResolver";
 
 /** Cena serializada na fila (JSON no banco). */
