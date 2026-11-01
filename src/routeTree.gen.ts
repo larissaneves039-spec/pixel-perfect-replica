@@ -10,33 +10,122 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as RenderJobRouteImport } from './routes/render-job'
+import { Route as AuthenticatedVideosRouteImport } from './routes/_authenticated/videos'
+import { Route as ApiPublicWorkerClaimRouteImport } from './routes/api/public/worker/claim'
+import { Route as ApiPublicWorkerCompleteRouteImport } from './routes/api/public/worker/complete'
+import { Route as ApiPublicWorkerFailRouteImport } from './routes/api/public/worker/fail'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RenderJobRoute = RenderJobRouteImport.update({
+  id: '/render-job',
+  path: '/render-job',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedVideosRoute = AuthenticatedVideosRouteImport.update({
+  id: '/videos',
+  path: '/videos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ApiPublicWorkerClaimRoute = ApiPublicWorkerClaimRouteImport.update({
+  id: '/api/public/worker/claim',
+  path: '/api/public/worker/claim',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicWorkerCompleteRoute = ApiPublicWorkerCompleteRouteImport.update({
+  id: '/api/public/worker/complete',
+  path: '/api/public/worker/complete',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicWorkerFailRoute = ApiPublicWorkerFailRouteImport.update({
+  id: '/api/public/worker/fail',
+  path: '/api/public/worker/fail',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/render-job': typeof RenderJobRoute
+  '/videos': typeof AuthenticatedVideosRoute
+  '/api/public/worker/claim': typeof ApiPublicWorkerClaimRoute
+  '/api/public/worker/complete': typeof ApiPublicWorkerCompleteRoute
+  '/api/public/worker/fail': typeof ApiPublicWorkerFailRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/render-job': typeof RenderJobRoute
+  '/videos': typeof AuthenticatedVideosRoute
+  '/api/public/worker/claim': typeof ApiPublicWorkerClaimRoute
+  '/api/public/worker/complete': typeof ApiPublicWorkerCompleteRoute
+  '/api/public/worker/fail': typeof ApiPublicWorkerFailRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/render-job': typeof RenderJobRoute
+  '/_authenticated/videos': typeof AuthenticatedVideosRoute
+  '/api/public/worker/claim': typeof ApiPublicWorkerClaimRoute
+  '/api/public/worker/complete': typeof ApiPublicWorkerCompleteRoute
+  '/api/public/worker/fail': typeof ApiPublicWorkerFailRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/render-job'
+    | '/videos'
+    | '/api/public/worker/claim'
+    | '/api/public/worker/complete'
+    | '/api/public/worker/fail'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/auth'
+    | '/render-job'
+    | '/videos'
+    | '/api/public/worker/claim'
+    | '/api/public/worker/complete'
+    | '/api/public/worker/fail'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/render-job'
+    | '/_authenticated/videos'
+    | '/api/public/worker/claim'
+    | '/api/public/worker/complete'
+    | '/api/public/worker/fail'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
+  RenderJobRoute: typeof RenderJobRoute
+  ApiPublicWorkerClaimRoute: typeof ApiPublicWorkerClaimRoute
+  ApiPublicWorkerCompleteRoute: typeof ApiPublicWorkerCompleteRoute
+  ApiPublicWorkerFailRoute: typeof ApiPublicWorkerFailRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +137,77 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/render-job': {
+      id: '/render-job'
+      path: '/render-job'
+      fullPath: '/render-job'
+      preLoaderRoute: typeof RenderJobRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/videos': {
+      id: '/_authenticated/videos'
+      path: '/videos'
+      fullPath: '/videos'
+      preLoaderRoute: typeof AuthenticatedVideosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/public/worker/claim': {
+      id: '/api/public/worker/claim'
+      path: '/api/public/worker/claim'
+      fullPath: '/api/public/worker/claim'
+      preLoaderRoute: typeof ApiPublicWorkerClaimRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/worker/complete': {
+      id: '/api/public/worker/complete'
+      path: '/api/public/worker/complete'
+      fullPath: '/api/public/worker/complete'
+      preLoaderRoute: typeof ApiPublicWorkerCompleteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/worker/fail': {
+      id: '/api/public/worker/fail'
+      path: '/api/public/worker/fail'
+      fullPath: '/api/public/worker/fail'
+      preLoaderRoute: typeof ApiPublicWorkerFailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedVideosRoute: typeof AuthenticatedVideosRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedVideosRoute: AuthenticatedVideosRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
+  RenderJobRoute: RenderJobRoute,
+  ApiPublicWorkerClaimRoute: ApiPublicWorkerClaimRoute,
+  ApiPublicWorkerCompleteRoute: ApiPublicWorkerCompleteRoute,
+  ApiPublicWorkerFailRoute: ApiPublicWorkerFailRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

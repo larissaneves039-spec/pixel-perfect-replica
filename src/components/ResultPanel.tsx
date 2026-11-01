@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, FileText } from "lucide-react";
+import { Download, FileText, FolderPlus } from "lucide-react";
 import type { RenderPart } from "@/lib/renderer";
 import type { ResolvedSlot } from "@/lib/mediaResolver";
 import { fmtTime } from "@/lib/formState";
@@ -16,7 +16,7 @@ function download(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
-export function ResultPanel(props: { parts: RenderPart[]; slots: ResolvedSlot[]; theme: string; total: number; onRestart: () => void }) {
+export function ResultPanel(props: { parts: RenderPart[]; slots: ResolvedSlot[]; theme: string; total: number; onRestart: () => void; onSaveToFolder?: () => void }) {
   const slug = props.theme.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 40) || "video";
   const dur = fmtTime(props.total).replace(/:/g, "-");
   const name = (p: RenderPart) => `fundo_${slug}_${dur}${props.parts.length > 1 ? `_parte${p.index + 1}` : ""}.${p.ext}`;
@@ -42,6 +42,7 @@ export function ResultPanel(props: { parts: RenderPart[]; slots: ResolvedSlot[];
           </>
         )}
         <Button variant="secondary" onClick={credits}><FileText /> Baixar créditos (.txt)</Button>
+        {props.onSaveToFolder && <Button variant="secondary" onClick={props.onSaveToFolder}><FolderPlus /> Salvar na pasta</Button>}
         <Button variant="ghost" onClick={props.onRestart}>Criar outro</Button>
       </div>
       <p className="text-xs text-muted-foreground">Formato: {props.parts[0]?.ext.toUpperCase()}</p>

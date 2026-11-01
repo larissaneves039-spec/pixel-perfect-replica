@@ -1,9 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Settings, AlertTriangle } from "lucide-react";
+import { FolderOpen, LogOut, Settings, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { supabase } from "@/integrations/supabase/client";
 import { GeneratorForm } from "@/components/GeneratorForm";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { ReviewPanel } from "@/components/ReviewPanel";
@@ -13,7 +16,9 @@ import { planSlots, type Slot } from "@/lib/slotPlanner";
 import { buildQueries } from "@/lib/queryBuilder";
 import { PexelsClient, PexelsError } from "@/lib/pexelsClient";
 import { resolveAll, resolveSlot, type ResolvedSlot } from "@/lib/mediaResolver";
-import { analyzeAudio, audioDuration, sectionsFromAnalysis } from "@/lib/gemini";
+import { analyzeAudio, audioDuration, audioMime, sectionsFromAnalysis } from "@/lib/gemini";
+import { buildScenes, buildSettings } from "@/lib/queue";
+import { createFolder, enqueueVideo, listFolders, saveRenderedVideo } from "@/lib/videos.functions";
 import { renderVideo, supportCheck, type RenderPart, type RenderProgress } from "@/lib/renderer";
 
 export const Route = createFileRoute("/")({
@@ -52,6 +57,10 @@ function Index() {
   const [rp, setRp] = useState<RenderProgress | null>(null);
   const [parts, setParts] = useState<RenderPart[]>([]);
   const [plannedTotal, setPlannedTotal] = useState(0);
+  const [signedIn, setSignedIn] = useState(false);
+  const [queueOpen, setQueueOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [folderBusy, setFolderBusy] = useState(false);
   const clientRef = useRef<PexelsClient | null>(null);
   const usedRef = useRef(new Set<string>());
   const planRef = useRef<Slot[]>([]);
@@ -64,6 +73,7 @@ function Index() {
     setApiKey(loadKey());
     setGeminiKey(loadGeminiKey());
     setSupport(supportCheck());
+    supabase.auth.getUser().then(({ data }) => setSignedIn(!!data.user));
   }, []);
   useEffect(() => saveForm(form), [form]);
 
@@ -239,6 +249,75 @@ function Index() {
     }
   };
 
+  const enqueue = async (folderId: string) => {
+    setFolderBusy(true);
+    try {
+      let audioPath: string | null = null;
+      if (audioFile && form.includeAudio) {
+        const { data } = await supabase.auth.getUser();
+        if (!data.user) throw new Error("Sessão expirada — entre novamente.");
+        audioPath = `${data.user.id}/audio/${crypto.randomUUID()}.${(audioFile.name.split(".").pop() ?? "mp3").toLowerCase()}`;
+        const { error } = await supabase.storage.from("videos").upload(audioPath, audioFile, {
+          upsert: true,
+          contentType: audioMime(audioFile),
+        });
+        if (error) throw new Error(`Falha ao enviar o áudio: ${error.message}`);
+      }
+      await enqueueVideo({
+        data: {
+          folderId,
+          title: form.theme.trim() || "Vídeo de fundo",
+          settings: buildSettings(form, plannedTotal) as unknown as Record<string, unknown>,
+          scenes: buildScenes(slots) as unknown as Record<string, unknown>[],
+          totalSeconds: plannedTotal,
+          audioPath,
+        },
+      });
+      toast.success("Enviado para a fila! O GitHub renderiza a cada 20 minutos.");
+      setQueueOpen(false);
+      navigate({ to: "/videos" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao enviar para a fila.");
+    } finally {
+      setFolderBusy(false);
+    }
+  };
+
+  const saveRendered = async (folderId: string) => {
+    setFolderBusy(true);
+    try {
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) throw new Error("Sessão expirada — entre novamente.");
+      const paths: string[] = [];
+      for (const p of parts) {
+        const path = `${data.user.id}/done/${crypto.randomUUID()}/parte-${String(p.index + 1).padStart(2, "0")}.${p.ext}`;
+        const { error } = await supabase.storage.from("videos").upload(path, p.blob, {
+          upsert: true,
+          contentType: p.mime.split(";")[0],
+        });
+        if (error) throw new Error(`Falha ao enviar a parte ${p.index + 1} (${(p.blob.size / 1e6).toFixed(0)} MB): ${error.message}`);
+        paths.push(path);
+      }
+      await saveRenderedVideo({
+        data: {
+          folderId,
+          title: form.theme.trim() || "Vídeo de fundo",
+          settings: buildSettings(form, plannedTotal) as unknown as Record<string, unknown>,
+          scenes: buildScenes(slots) as unknown as Record<string, unknown>[],
+          totalSeconds: plannedTotal,
+          paths,
+        },
+      });
+      toast.success("Vídeo salvo na pasta!");
+      setSaveOpen(false);
+      navigate({ to: "/videos" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao salvar o vídeo.");
+    } finally {
+      setFolderBusy(false);
+    }
+  };
+
   const elapsedWall = rp ? (performance.now() - renderStart.current) / 1000 : 0;
   const pct = rp ? rp.elapsed / rp.total : 0;
 
@@ -249,7 +328,13 @@ function Index() {
           <h1 className="text-2xl font-extrabold md:text-3xl">Gerador de Vídeo de Fundo</h1>
           <p className="text-sm text-muted-foreground">Clipes e fotos do Pexels, sem repetição, montados no seu navegador.</p>
         </div>
-        <Button variant="secondary" onClick={() => setSettingsOpen(true)}><Settings /> {apiKey ? "Configurações" : "Adicionar chave"}</Button>
+        <div className="flex gap-2">
+          {signedIn && (
+            <Button variant="ghost" onClick={async () => { await supabase.auth.signOut(); setSignedIn(false); }}><LogOut /> Sair</Button>
+          )}
+          <Button variant="secondary" asChild><Link to="/videos"><FolderOpen /> Meus vídeos</Link></Button>
+          <Button variant="secondary" onClick={() => setSettingsOpen(true)}><Settings /> {apiKey ? "Configurações" : "Adicionar chave"}</Button>
+        </div>
       </header>
 
       <main className="mx-auto max-w-6xl space-y-6 px-6">
@@ -267,7 +352,8 @@ function Index() {
           <>
             {busy && <BusyBar msg={progressMsg} pct={progressPct} requests={requests} />}
             <ReviewPanel slots={slots} total={plannedTotal} requests={requests} busy={busy} busyIndex={swapIndex}
-              onSwap={swap} onRegenerate={() => resolveRun("new")} onComplete={() => resolveRun("complete")} onRender={startRender} onBack={() => setStep("form")} />
+              queueBusy={folderBusy} onSwap={swap} onRegenerate={() => resolveRun("new")} onComplete={() => resolveRun("complete")}
+              onQueue={() => setQueueOpen(true)} onRender={startRender} onBack={() => setStep("form")} />
           </>
         )}
         <div className={step === "render" ? "panel space-y-5 p-6" : "hidden"}>
@@ -281,12 +367,25 @@ function Index() {
           </div>
           <Button variant="destructive" onClick={() => abortRef.current?.abort()}>Cancelar</Button>
         </div>
-        {step === "result" && <ResultPanel parts={parts} slots={slots} theme={form.theme} total={plannedTotal} onRestart={() => setStep("form")} />}
+        {step === "result" && <ResultPanel parts={parts} slots={slots} theme={form.theme} total={plannedTotal} onRestart={() => setStep("form")} onSaveToFolder={() => setSaveOpen(true)} />}
       </main>
 
       <footer className="fixed inset-x-0 bottom-0 border-t border-border bg-background/90 py-2 text-center text-xs text-muted-foreground backdrop-blur">
         <a href="https://www.pexels.com" target="_blank" rel="noreferrer" className="hover:text-primary">Mídias fornecidas por Pexels</a>
       </footer>
+
+      <FolderPickerDialog
+        open={queueOpen} onOpenChange={setQueueOpen} busy={folderBusy}
+        title="Enviar para a fila" description="Escolha a pasta. O GitHub Actions renderiza a cada 20 minutos."
+        onPick={(folderId) => void enqueue(folderId)}
+      />
+      {step === "result" && (
+        <FolderPickerDialog
+          open={saveOpen} onOpenChange={setSaveOpen} busy={folderBusy}
+          title="Salvar vídeo na pasta" description="Escolha a pasta onde o vídeo pronto será guardado."
+          onPick={(folderId) => void saveRendered(folderId)}
+        />
+      )}
 
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} value={apiKey} geminiValue={geminiKey} onSave={(k, g) => { setApiKey(k); saveKey(k); setGeminiKey(g); saveGeminiKey(g); clientRef.current = null; }} />
     </div>
@@ -308,5 +407,78 @@ function BusyBar({ msg, pct, requests }: { msg: string; pct: number; requests: n
       <Progress value={pct} />
       <div className="flex justify-between text-xs text-muted-foreground"><span>{msg || "Buscando mídias…"}</span><span>{requests} requisições</span></div>
     </div>
+  );
+}
+
+function FolderPickerDialog(props: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  busy: boolean;
+  title: string;
+  description: string;
+  onPick: (folderId: string) => void;
+}) {
+  const [folders, setFolders] = useState<{ id: string; name: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    if (!props.open) return;
+    setLoading(true);
+    listFolders()
+      .then((rows) => setFolders(rows as { id: string; name: string }[]))
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Erro ao carregar pastas."))
+      .finally(() => setLoading(false));
+  }, [props.open]);
+
+  const create = async () => {
+    const name = newName.trim();
+    if (!name || creating) return;
+    setCreating(true);
+    try {
+      const row = (await createFolder({ data: { name } })) as { id: string; name: string };
+      setFolders((f) => [...f, row]);
+      setNewName("");
+      props.onOpenChange(false);
+      props.onPick(row.id);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao criar pasta.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{props.title}</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">{props.description}</p>
+        <div className="max-h-60 space-y-1 overflow-y-auto">
+          {loading ? (
+            <p className="p-2 text-sm text-muted-foreground">Carregando…</p>
+          ) : folders.length === 0 ? (
+            <p className="p-2 text-sm text-muted-foreground">Crie uma pasta abaixo para continuar.</p>
+          ) : (
+            folders.map((f) => (
+              <Button key={f.id} variant="secondary" className="w-full justify-start" disabled={props.busy || creating}
+                onClick={() => { props.onOpenChange(false); props.onPick(f.id); }}>
+                {f.name}
+              </Button>
+            ))
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nova pasta…" disabled={props.busy || creating}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void create(); } }} />
+          <Button variant="secondary" onClick={() => void create()} disabled={props.busy || creating || !newName.trim()}>Criar</Button>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => props.onOpenChange(false)} disabled={props.busy || creating}>Cancelar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
