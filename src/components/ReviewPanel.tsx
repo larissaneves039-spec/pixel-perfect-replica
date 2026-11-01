@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Shuffle, Wrench, Film } from "lucide-react";
+import { RefreshCw, Send, Shuffle, Wrench, Film } from "lucide-react";
 import type { ResolvedSlot } from "@/lib/mediaResolver";
 import { fmtTime } from "@/lib/formState";
 import { cn } from "@/lib/utils";
@@ -11,9 +11,11 @@ export function ReviewPanel(props: {
   requests: number;
   busyIndex: number | null;
   busy: boolean;
+  queueBusy: boolean;
   onSwap: (i: number) => void;
   onRegenerate: () => void;
   onComplete: () => void;
+  onQueue: () => void;
   onRender: () => void;
   onBack: () => void;
 }) {
@@ -30,10 +32,11 @@ export function ReviewPanel(props: {
         <Stat n={reused} l="reaproveitadas" />
         <Stat n={props.requests} l="requisições usadas" />
         <div className="ml-auto flex flex-wrap gap-2">
-          <Button variant="ghost" onClick={props.onBack} disabled={props.busy}>Voltar</Button>
-          <Button variant="secondary" onClick={props.onRegenerate} disabled={props.busy}><Shuffle /> Gerar nova seleção</Button>
-          {reused > 0 && <Button variant="secondary" onClick={props.onComplete} disabled={props.busy}><Wrench /> Completar cenas faltantes</Button>}
-          <Button onClick={props.onRender} disabled={props.busy}><Film /> Renderizar vídeo</Button>
+          <Button variant="ghost" onClick={props.onBack} disabled={props.busy || props.queueBusy}>Voltar</Button>
+          <Button variant="secondary" onClick={props.onRegenerate} disabled={props.busy || props.queueBusy}><Shuffle /> Gerar nova seleção</Button>
+          {reused > 0 && <Button variant="secondary" onClick={props.onComplete} disabled={props.busy || props.queueBusy}><Wrench /> Completar cenas faltantes</Button>}
+          <Button variant="secondary" onClick={props.onQueue} disabled={props.busy || props.queueBusy}><Send /> Enviar para a fila</Button>
+          <Button onClick={props.onRender} disabled={props.busy || props.queueBusy}><Film /> Renderizar vídeo</Button>
         </div>
       </div>
 

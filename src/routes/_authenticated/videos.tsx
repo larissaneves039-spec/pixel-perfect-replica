@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   CheckCircle2,
@@ -10,9 +11,7 @@ import {
   Loader2,
   LogOut,
   Pencil,
-  Play,
   RefreshCw,
-  Settings,
   Trash2,
   TriangleAlert,
 } from "lucide-react";
@@ -32,7 +31,6 @@ import {
 import { creditsText, type StoredScene } from "@/lib/queue";
 import { fmtTime } from "@/lib/formState";
 import { supabase } from "@/integrations/supabase/client";
-import { queryClient } from "@/lib/query-client";
 
 interface FolderRow {
   id: string;
@@ -62,6 +60,7 @@ export const Route = createFileRoute("/_authenticated/videos")({
 });
 
 function VideosPage() {
+  const queryClient = useQueryClient();
   const [folders, setFolders] = useState<FolderRow[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [videos, setVideos] = useState<VideoListItem[]>([]);
