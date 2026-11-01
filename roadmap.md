@@ -8,5 +8,5 @@
 - [x] Rotas do worker (`/api/public/worker/claim|complete|fail`) com WORKER_SECRET
 - [x] Página `/render-job` + `scripts/render-worker.ts` + `.github/workflows/render.yml`
 - [ ] Usuária: criar os secrets no GitHub (SUPABASE_URL, SUPUBASE_SERVICE_ROLE_KEY, WORKER_SECRET, PEXELS_API_KEY) e ativar o workflow
-  - Aguarda ação fora do app (GitHub)
+  - Aguarda ação fora do app (GitHub): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, WORKER_SECRET, PEXELS_API_KEY
 - [ ] Usuária: ativar o provedor de e-mail/senha no Supabase (Authentication → Providers), se ainda não estiver ativo
