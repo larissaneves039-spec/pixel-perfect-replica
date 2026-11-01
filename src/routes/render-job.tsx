@@ -166,7 +166,6 @@ function RenderJobPage() {
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" />
           <span>{phase} {msg && `· ${msg}`}</span>
-          <span className="ml-auto font-mono">{fmtTime((pct / 100) * (Number(localStorage.getItem(LS_PARTS)) > 0 ? 0 : 0))}</span>
         </div>
       </div>
     </div>
