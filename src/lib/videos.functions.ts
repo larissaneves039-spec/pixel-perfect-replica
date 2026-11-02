@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { Json } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { StoredScene } from "@/lib/queue";
 
 const uuid = z.string().uuid();
 
@@ -56,7 +57,7 @@ export interface VideoListItem {
   outputPaths: string[];
   audioPath: string | null;
   createdAt: string;
-  scenes: unknown;
+  scenes: StoredScene[];
   signedUrls: string[];
 }
 
@@ -103,7 +104,7 @@ export const listVideos = createServerFn({ method: "POST" })
       outputPaths: (r.output_paths ?? []) as string[],
       audioPath: r.audio_path,
       createdAt: r.created_at,
-      scenes: r.scenes,
+      scenes: r.scenes as StoredScene[],
       signedUrls: (r.output_paths ?? []).map((p) => urls.get(p as string) ?? ""),
     }));
   });
