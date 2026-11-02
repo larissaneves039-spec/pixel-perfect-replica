@@ -61,6 +61,7 @@ function Index() {
   const [queueOpen, setQueueOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const [folderBusy, setFolderBusy] = useState(false);
+  const navigate = useNavigate();
   const clientRef = useRef<PexelsClient | null>(null);
   const usedRef = useRef(new Set<string>());
   const planRef = useRef<Slot[]>([]);
@@ -73,7 +74,10 @@ function Index() {
     setApiKey(loadKey());
     setGeminiKey(loadGeminiKey());
     setSupport(supportCheck());
-    supabase.auth.getUser().then(({ data }) => setSignedIn(!!data.user));
+    void (async () => {
+      const { data } = await supabase.auth.getUser();
+      setSignedIn(!!data.user);
+    })();
   }, []);
   useEffect(() => saveForm(form), [form]);
 

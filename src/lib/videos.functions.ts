@@ -63,12 +63,25 @@ export const listVideos = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { folderId: string }) => z.object({ folderId: uuid }).parse(input))
   .handler(async ({ data, context }): Promise<VideoListItem[]> => {
-    const { data: rows, error } = await context.supabase
+    const { data: rowsData, error } = await context.supabase
       .from("videos")
       .select("id, folder_id, title, status, error, total_seconds, output_paths, audio_path, scenes, created_at")
       .eq("folder_id", data.folderId)
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
+
+    const rows = (rowsData ?? []) as {
+      id: string;
+      folder_id: string;
+      title: string;
+      status: string;
+      error: string | null;
+      total_seconds: number;
+      output_paths: string[] | null;
+      audio_path: string | null;
+      scenes: unknown;
+      created_at: string;
+    }[];
 
     const paths = rows.flatMap((r) => (r.output_paths ?? []).filter((p): p is string => !!p));
     const urls = new Map<string, string>();

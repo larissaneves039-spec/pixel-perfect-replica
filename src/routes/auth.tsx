@@ -30,9 +30,10 @@ function AuthPage() {
   const [confirmEmail, setConfirmEmail] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    void (async () => {
+      const { data } = await supabase.auth.getUser();
       if (data.user) void navigate({ to: "/videos", replace: true });
-    });
+    })();
   }, [navigate]);
 
   const submit = async (e: FormEvent) => {
