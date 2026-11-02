@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Clapperboard, Loader2 } from "lucide-react";
@@ -30,9 +30,10 @@ function AuthPage() {
   const [confirmEmail, setConfirmEmail] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    void (async () => {
+      const { data } = await supabase.auth.getUser();
       if (data.user) void navigate({ to: "/videos", replace: true });
-    });
+    })();
   }, [navigate]);
 
   const submit = async (e: FormEvent) => {

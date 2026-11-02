@@ -12,6 +12,7 @@ import {
   LogOut,
   Pencil,
   RefreshCw,
+  Settings,
   Trash2,
   TriangleAlert,
 } from "lucide-react";
@@ -81,7 +82,7 @@ function VideosPage() {
 
   const refreshVideos = useCallback(async (folderId: string) => {
     try {
-      const rows = await listVideos({ data: { folderId } });
+      const rows = (await listVideos({ data: { folderId } })) as VideoListItem[];
       setVideos(rows);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao carregar vídeos.");
@@ -227,7 +228,7 @@ function VideosPage() {
           ) : (
             <div className="space-y-4">
               {videos.map((v) => {
-                const st = STATUS[v.status] ?? STATUS.queued;
+                const st = STATUS[v.status] ?? STATUS["queued"];
                 return (
                   <div key={v.id} className="panel space-y-3 p-4">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

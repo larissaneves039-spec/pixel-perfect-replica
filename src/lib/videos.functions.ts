@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import type { Json } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { StoredScene } from "@/lib/queue";
 
 const uuid = z.string().uuid();
 
@@ -55,7 +57,7 @@ export interface VideoListItem {
   outputPaths: string[];
   audioPath: string | null;
   createdAt: string;
-  scenes: unknown;
+  scenes: StoredScene[];
   signedUrls: string[];
 }
 
@@ -63,12 +65,25 @@ export const listVideos = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { folderId: string }) => z.object({ folderId: uuid }).parse(input))
   .handler(async ({ data, context }): Promise<VideoListItem[]> => {
-    const { data: rows, error } = await context.supabase
+    const { data: rowsData, error } = await context.supabase
       .from("videos")
       .select("id, folder_id, title, status, error, total_seconds, output_paths, audio_path, scenes, created_at")
       .eq("folder_id", data.folderId)
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
+
+    const rows = (rowsData ?? []) as {
+      id: string;
+      folder_id: string;
+      title: string;
+      status: string;
+      error: string | null;
+      total_seconds: number;
+      output_paths: string[] | null;
+      audio_path: string | null;
+      scenes: unknown;
+      created_at: string;
+    }[];
 
     const paths = rows.flatMap((r) => (r.output_paths ?? []).filter((p): p is string => !!p));
     const urls = new Map<string, string>();
@@ -89,7 +104,7 @@ export const listVideos = createServerFn({ method: "POST" })
       outputPaths: (r.output_paths ?? []) as string[],
       audioPath: r.audio_path,
       createdAt: r.created_at,
-      scenes: r.scenes,
+      scenes: r.scenes as StoredScene[],
       signedUrls: (r.output_paths ?? []).map((p) => urls.get(p as string) ?? ""),
     }));
   });
@@ -120,8 +135,8 @@ export const enqueueVideo = createServerFn({ method: "POST" })
         folder_id: data.folderId,
         title: data.title,
         status: "queued",
-        settings: data.settings,
-        scenes: data.scenes,
+        settings: data.settings as unknown as Json,
+        scenes: data.scenes as unknown as Json,
         audio_path: data.audioPath ?? null,
         total_seconds: data.totalSeconds,
       })
@@ -157,8 +172,8 @@ export const saveRenderedVideo = createServerFn({ method: "POST" })
         folder_id: data.folderId,
         title: data.title,
         status: "done",
-        settings: data.settings,
-        scenes: data.scenes,
+        settings: data.settings as unknown as Json,
+        scenes: data.scenes as unknown as Json,
         output_paths: data.paths,
         total_seconds: data.totalSeconds,
       })
