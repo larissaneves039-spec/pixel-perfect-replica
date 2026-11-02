@@ -19,7 +19,7 @@ export const Route = createFileRoute("/api/public/worker/claim")({
           console.error("[worker/claim]", error.message);
           return new Response("Erro na fila", { status: 500 });
         }
-        if (!data) return Response.json({ video: null, audioUrl: null });
+        if (!data || !data.id) return Response.json({ video: null, audioUrl: null });
 
         let audioUrl: string | null = null;
         if (data.audio_path) {
