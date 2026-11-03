@@ -61,23 +61,21 @@ async function waitForApp(): Promise<void> {
   throw new Error(`O app não respondeu em ${APP_URL}`);
 }
 
-async function claim(): Promise<ClaimedJob | null> {
-  const res = await fetch(`${APP_URL}/api/public/worker/claim`, {
-    method: "POST",
-    headers: { "x-worker-secret": WORKER_SECRET! },
-  });
-  if (!res.ok) throw new Error(`claim falhou: HTTP ${res.status}`);
-  const json = (await res.json()) as ClaimedJob;
-  return json.video ? json : null;
+async function complete(videoId: string, paths: string[]): Promise<void> {
+  const { error } = await admin
+    .from("videos")
+    .update({ status: "done", output_paths: paths, error: null, locked_at: null })
+    .eq("id", videoId)
+    .eq("status", "rendering");
+  if (error) console.error(`Falha ao salvar a conclusão: ${error.message}`);
 }
 
-async function report(endpoint: string, body: unknown): Promise<void> {
-  const res = await fetch(`${APP_URL}${endpoint}`, {
-    method: "POST",
-    headers: { "x-worker-secret": WORKER_SECRET!, "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) console.error(`${endpoint} respondeu HTTP ${res.status}`);
+async function fail(videoId: string, message: string): Promise<void> {
+  const { error } = await admin
+    .from("videos")
+    .update({ status: "error", error: message, locked_at: null })
+    .eq("id", videoId);
+  if (error) console.error(`Falha ao registrar o erro: ${error.message}`);
 }
 
 const DOWNLOADS = "/tmp/render-worker-downloads";
@@ -128,7 +126,7 @@ async function renderOne(job: ClaimedJob): Promise<void> {
     if (status === "error") {
       const message = await page.evaluate(() => localStorage.getItem("renderjob.error") || "Erro na renderização.");
       console.error("render falhou:", message);
-      await report("/api/public/worker/fail", { videoId: job.video.id, message });
+      await fail(job.video.id, message);
       return;
     }
 
@@ -157,12 +155,12 @@ async function renderOne(job: ClaimedJob): Promise<void> {
       console.log(`parte ${i + 1}/${files.length} enviada ao armazenamento`);
     }
 
-    await report("/api/public/worker/complete", { videoId: job.video.id, paths });
+    await complete(job.video.id, paths);
     console.log(`vídeo ${job.video.id} concluído com ${paths.length} parte(s).`);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error("renderOne:", message);
-    await report("/api/public/worker/fail", { videoId: job.video.id, message });
+    await fail(job.video.id, message);
   } finally {
     await browser?.close();
   }

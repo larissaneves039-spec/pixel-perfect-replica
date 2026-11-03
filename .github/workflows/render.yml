@@ -18,17 +18,19 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - name: Instalar dependências
         run: bun install
-      - name: Build do app
-        run: bun run build
       - name: Instalar Chrome para Playwright
         run: bunx playwright install chrome --with-deps
-      - name: Subir preview do app
+      - name: Build do app (estático)
+        env:
+          VITE_SUPABASE_URL: https://sztvwhkvjusvtbnjmopj.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: bunx vite build -c vite.pages.config.ts
+      - name: Servir o app
         run: |
-          nohup bunx vite preview --host --port 4173 > preview.log 2>&1 &
+          nohup bun run scripts/serve-static.ts > preview.log 2>&1 &
       - name: Renderizar fila
         env:
           APP_URL: http://localhost:4173
-          WORKER_SECRET: ${{ secrets.WORKER_SECRET }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
