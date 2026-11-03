@@ -1,20 +1,21 @@
 // Worker de renderização do GitHub Actions.
-// Pega o próximo vídeo "Na fila" pelo app, renderiza em um Chrome headless
+// Pega o próximo vídeo "Na fila" no Supabase, renderiza em um Chrome headless
 // (tempo real, igual ao navegador) e envia as partes para o Supabase Storage.
+// Fala direto com o banco usando a service-role key: o app é hospedado em
+// site estático (GitHub Pages), então não existe servidor para rotas de worker.
 import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
 import { mkdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 
 const APP_URL = process.env["APP_URL"] || "http://localhost:4173";
-const WORKER_SECRET = process.env["WORKER_SECRET"];
 const SUPABASE_URL = process.env["SUPABASE_URL"];
 const SERVICE_ROLE_KEY = process.env["SUPABASE_SERVICE_ROLE_KEY"];
 const PEXELS_API_KEY = process.env["PEXELS_API_KEY"] || "";
 const MAX_RUN_MS = 5 * 60 * 60 * 1000; // margem dentro do timeout do workflow
 
-if (!WORKER_SECRET || !SUPABASE_URL || !SERVICE_ROLE_KEY) {
-  console.error("Faltam variáveis: WORKER_SECRET / SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY");
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  console.error("Faltam variáveis: SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY");
   process.exit(1);
 }
 
@@ -32,6 +33,19 @@ interface ClaimedJob {
     settings: unknown;
   };
   audioUrl: string | null;
+}
+
+async function claim(): Promise<ClaimedJob | null> {
+  const { data, error } = await admin.rpc("claim_video_job");
+  if (error) throw new Error(`claim falhou: ${error.message}`);
+  if (!data || typeof data !== "object" || !("id" in data) || !data.id) return null;
+  const row = data as { id: string; audio_path: string | null };
+  let audioUrl: string | null = null;
+  if (row.audio_path) {
+    const { data: signed } = await admin.storage.from("videos").createSignedUrl(row.audio_path, 60 * 60 * 8);
+    audioUrl = signed?.signedUrl ?? null;
+  }
+  return { video: data as unknown as ClaimedJob["video"], audioUrl };
 }
 
 async function waitForApp(): Promise<void> {
