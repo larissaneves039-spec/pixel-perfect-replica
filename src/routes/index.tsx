@@ -18,7 +18,7 @@ import { PexelsClient, PexelsError } from "@/lib/pexelsClient";
 import { resolveAll, resolveSlot, type ResolvedSlot } from "@/lib/mediaResolver";
 import { analyzeAudio, audioDuration, audioMime, sectionsFromAnalysis } from "@/lib/gemini";
 import { buildScenes, buildSettings } from "@/lib/queue";
-import { createFolder, enqueueVideo, listFolders, saveRenderedVideo } from "@/lib/videos.functions";
+import { createFolder, enqueueVideo, listFolders, saveRenderedVideo } from "@/lib/videos.api";
 import { renderVideo, supportCheck, type RenderPart, type RenderProgress } from "@/lib/renderer";
 
 export const Route = createFileRoute("/")({
