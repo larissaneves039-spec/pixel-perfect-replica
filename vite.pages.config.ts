@@ -11,6 +11,5 @@ export default defineConfig({
     server: { entry: "server" },
     spa: { enabled: true, prerender: { outputPath: "/index.html" } },
   },
-  nitro: { preset: "static" },
   vite: { base: base ? `${base}/` : "/" },
 });
