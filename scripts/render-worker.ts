@@ -1,20 +1,21 @@
 // Worker de renderização do GitHub Actions.
-// Pega o próximo vídeo "Na fila" pelo app, renderiza em um Chrome headless
+// Pega o próximo vídeo "Na fila" no Supabase, renderiza em um Chrome headless
 // (tempo real, igual ao navegador) e envia as partes para o Supabase Storage.
+// Fala direto com o banco usando a service-role key: o app é hospedado em
+// site estático (GitHub Pages), então não existe servidor para rotas de worker.
 import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
 import { mkdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 
 const APP_URL = process.env["APP_URL"] || "http://localhost:4173";
-const WORKER_SECRET = process.env["WORKER_SECRET"];
 const SUPABASE_URL = process.env["SUPABASE_URL"];
 const SERVICE_ROLE_KEY = process.env["SUPABASE_SERVICE_ROLE_KEY"];
 const PEXELS_API_KEY = process.env["PEXELS_API_KEY"] || "";
 const MAX_RUN_MS = 5 * 60 * 60 * 1000; // margem dentro do timeout do workflow
 
-if (!WORKER_SECRET || !SUPABASE_URL || !SERVICE_ROLE_KEY) {
-  console.error("Faltam variáveis: WORKER_SECRET / SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY");
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  console.error("Faltam variáveis: SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY");
   process.exit(1);
 }
 
@@ -34,6 +35,19 @@ interface ClaimedJob {
   audioUrl: string | null;
 }
 
+async function claim(): Promise<ClaimedJob | null> {
+  const { data, error } = await admin.rpc("claim_video_job");
+  if (error) throw new Error(`claim falhou: ${error.message}`);
+  if (!data || typeof data !== "object" || !("id" in data) || !data.id) return null;
+  const row = data as { id: string; audio_path: string | null };
+  let audioUrl: string | null = null;
+  if (row.audio_path) {
+    const { data: signed } = await admin.storage.from("videos").createSignedUrl(row.audio_path, 60 * 60 * 8);
+    audioUrl = signed?.signedUrl ?? null;
+  }
+  return { video: data as unknown as ClaimedJob["video"], audioUrl };
+}
+
 async function waitForApp(): Promise<void> {
   for (let i = 0; i < 60; i++) {
     try {
@@ -47,23 +61,21 @@ async function waitForApp(): Promise<void> {
   throw new Error(`O app não respondeu em ${APP_URL}`);
 }
 
-async function claim(): Promise<ClaimedJob | null> {
-  const res = await fetch(`${APP_URL}/api/public/worker/claim`, {
-    method: "POST",
-    headers: { "x-worker-secret": WORKER_SECRET! },
-  });
-  if (!res.ok) throw new Error(`claim falhou: HTTP ${res.status}`);
-  const json = (await res.json()) as ClaimedJob;
-  return json.video ? json : null;
+async function complete(videoId: string, paths: string[]): Promise<void> {
+  const { error } = await admin
+    .from("videos")
+    .update({ status: "done", output_paths: paths, error: null, locked_at: null })
+    .eq("id", videoId)
+    .eq("status", "rendering");
+  if (error) console.error(`Falha ao salvar a conclusão: ${error.message}`);
 }
 
-async function report(endpoint: string, body: unknown): Promise<void> {
-  const res = await fetch(`${APP_URL}${endpoint}`, {
-    method: "POST",
-    headers: { "x-worker-secret": WORKER_SECRET!, "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) console.error(`${endpoint} respondeu HTTP ${res.status}`);
+async function fail(videoId: string, message: string): Promise<void> {
+  const { error } = await admin
+    .from("videos")
+    .update({ status: "error", error: message, locked_at: null })
+    .eq("id", videoId);
+  if (error) console.error(`Falha ao registrar o erro: ${error.message}`);
 }
 
 const DOWNLOADS = "/tmp/render-worker-downloads";
@@ -114,7 +126,7 @@ async function renderOne(job: ClaimedJob): Promise<void> {
     if (status === "error") {
       const message = await page.evaluate(() => localStorage.getItem("renderjob.error") || "Erro na renderização.");
       console.error("render falhou:", message);
-      await report("/api/public/worker/fail", { videoId: job.video.id, message });
+      await fail(job.video.id, message);
       return;
     }
 
@@ -143,12 +155,12 @@ async function renderOne(job: ClaimedJob): Promise<void> {
       console.log(`parte ${i + 1}/${files.length} enviada ao armazenamento`);
     }
 
-    await report("/api/public/worker/complete", { videoId: job.video.id, paths });
+    await complete(job.video.id, paths);
     console.log(`vídeo ${job.video.id} concluído com ${paths.length} parte(s).`);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error("renderOne:", message);
-    await report("/api/public/worker/fail", { videoId: job.video.id, message });
+    await fail(job.video.id, message);
   } finally {
     await browser?.close();
   }

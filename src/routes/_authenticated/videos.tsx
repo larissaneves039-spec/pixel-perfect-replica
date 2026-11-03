@@ -28,7 +28,7 @@ import {
   renameFolder,
   retryVideo,
   type VideoListItem,
-} from "@/lib/videos.functions";
+} from "@/lib/videos.api";
 import { creditsText, type StoredScene } from "@/lib/queue";
 import { fmtTime } from "@/lib/formState";
 import { supabase } from "@/integrations/supabase/client";
