@@ -18,7 +18,9 @@ function walk(dir: string): string[] {
 
 describe("app sem dependência de servidor", () => {
   it("nenhum arquivo usa createServerFn", () => {
-    const offenders = walk(SRC).filter((f) => readFileSync(f, "utf8").includes("createServerFn"));
+    const offenders = walk(SRC)
+      .filter((f) => !f.endsWith("no-server-dependency.test.ts"))
+      .filter((f) => readFileSync(f, "utf8").includes("createServerFn"));
     expect(offenders, `encontrados: ${offenders.join(", ")}`).toEqual([]);
   });
 
