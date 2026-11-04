@@ -23,7 +23,7 @@ jobs:
       - name: Build do app (estático)
         env:
           VITE_SUPABASE_URL: https://sztvwhkvjusvtbnjmopj.supabase.co
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_n7r9vp6Mboox7BncKStXnA_HyxtHMcj' }}
         run: bunx vite build -c vite.pages.config.ts
       - name: Servir o app
         run: |

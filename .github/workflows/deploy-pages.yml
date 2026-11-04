@@ -26,7 +26,7 @@ jobs:
         env:
           PAGES_BASE_PATH: /${{ github.event.repository.name }}
           VITE_SUPABASE_URL: https://sztvwhkvjusvtbnjmopj.supabase.co
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_n7r9vp6Mboox7BncKStXnA_HyxtHMcj' }}
         run: bunx vite build -c vite.pages.config.ts
       - name: Fallback de rotas (404.html)
         run: cp .output/public/index.html .output/public/404.html
