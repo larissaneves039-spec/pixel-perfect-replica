@@ -1,4 +1,3 @@
-// @vitest-environment node
 // Regra do projeto: o app roda em hospedagem estática (GitHub Pages), sem
 // servidor próprio. Nenhum módulo do app pode depender de código de servidor
 // (server functions ou rotas em src/routes/api) — o acesso ao banco é direto
