@@ -5,8 +5,11 @@
 - [x] Login por e-mail/senha (`/auth`) e rotas protegidas
 - [x] Página "Meus vídeos" com pastas, prévia, download, reenfileirar e apagar
 - [x] Botão "Enviar para a fila" na revisão e "Salvar na pasta" no resultado
-- [x] Rotas do worker (`/api/public/worker/claim|complete|fail`) com WORKER_SECRET
 - [x] Página `/render-job` + `scripts/render-worker.ts` + `.github/workflows/render.yml`
-- [ ] Usuária: criar os secrets no GitHub (SUPABASE_URL, SUPUBASE_SERVICE_ROLE_KEY, WORKER_SECRET, PEXELS_API_KEY) e ativar o workflow
-  - Aguarda ação fora do app (GitHub): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, WORKER_SECRET, PEXELS_API_KEY
+- [x] Acesso ao banco direto do navegador (RLS) — sem server functions; app roda em site estático
+- [x] Worker do Actions fala direto com o Supabase (service role), sem rotas de servidor
+- [x] Workflow `deploy-pages.yml` publicando o build estático no GitHub Pages
+- [ ] Usuária: criar o secret `VITE_SUPABASE_PUBLISHABLE_KEY` no GitHub e ativar o Pages (Settings → Pages → Source: GitHub Actions)
+  - Aguarda ação fora do app (GitHub). Os demais secrets (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, PEXELS_API_KEY) já bastam; WORKER_SECRET não é mais necessário.
+- [ ] Usuária: adicionar a URL final do GitHub Pages em Authentication → URL Configuration → Redirect URLs no Supabase
 - [ ] Usuária: ativar o provedor de e-mail/senha no Supabase (Authentication → Providers), se ainda não estiver ativo
