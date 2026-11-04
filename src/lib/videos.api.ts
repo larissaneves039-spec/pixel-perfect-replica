@@ -3,6 +3,7 @@
 // de RLS (mesma proteção que as server functions davam). Necessário porque
 // o app roda em hospedagem estática (GitHub Pages), sem servidor próprio.
 import { z } from "zod";
+import type { Json } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import type { StoredScene } from "@/lib/queue";
 
