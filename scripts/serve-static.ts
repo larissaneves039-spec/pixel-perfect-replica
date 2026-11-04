@@ -5,6 +5,9 @@ import { join, normalize } from "node:path";
 
 const root = normalize(new URL("../.output/public", import.meta.url).pathname);
 const port = Number(process.env["PORT"] || 4173);
+// Prefixo opcional (ex.: BASE_PREFIX=/motion-mosaic) para simular o GitHub
+// Pages, que serve o site sob /<nome-do-repo>/.
+const basePrefix = (process.env["BASE_PREFIX"] || "").replace(/\/+$/, "");
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -28,6 +31,10 @@ Bun.serve({
   async fetch(req) {
     const url = new URL(req.url);
     let pathname = decodeURIComponent(url.pathname);
+    if (basePrefix) {
+      if (pathname === basePrefix) pathname = "/";
+      else if (pathname.startsWith(`${basePrefix}/`)) pathname = pathname.slice(basePrefix.length);
+    }
     if (pathname.endsWith("/")) pathname += "index.html";
     const candidate = normalize(join(root, pathname));
     if (candidate.startsWith(root)) {

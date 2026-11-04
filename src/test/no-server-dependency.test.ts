@@ -1,4 +1,3 @@
-// @vitest-environment node
 // Regra do projeto: o app roda em hospedagem estática (GitHub Pages), sem
 // servidor próprio. Nenhum módulo do app pode depender de código de servidor
 // (server functions ou rotas em src/routes/api) — o acesso ao banco é direto
@@ -19,7 +18,9 @@ function walk(dir: string): string[] {
 
 describe("app sem dependência de servidor", () => {
   it("nenhum arquivo usa createServerFn", () => {
-    const offenders = walk(SRC).filter((f) => readFileSync(f, "utf8").includes("createServerFn"));
+    const offenders = walk(SRC)
+      .filter((f) => !f.endsWith("no-server-dependency.test.ts"))
+      .filter((f) => readFileSync(f, "utf8").includes("createServerFn"));
     expect(offenders, `encontrados: ${offenders.join(", ")}`).toEqual([]);
   });
 

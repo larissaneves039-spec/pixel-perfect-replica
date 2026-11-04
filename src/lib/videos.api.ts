@@ -3,6 +3,7 @@
 // de RLS (mesma proteção que as server functions davam). Necessário porque
 // o app roda em hospedagem estática (GitHub Pages), sem servidor próprio.
 import { z } from "zod";
+import type { Json } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import type { StoredScene } from "@/lib/queue";
 
@@ -135,8 +136,8 @@ export const enqueueVideo = async (input: {
       folder_id: data.folderId,
       title: data.title,
       status: "queued",
-      settings: data.settings,
-      scenes: data.scenes,
+      settings: data.settings as unknown as Json,
+      scenes: data.scenes as unknown as Json,
       audio_path: data.audioPath ?? null,
       total_seconds: data.totalSeconds,
     })
@@ -174,8 +175,8 @@ export const saveRenderedVideo = async (input: {
       folder_id: data.folderId,
       title: data.title,
       status: "done",
-      settings: data.settings,
-      scenes: data.scenes,
+      settings: data.settings as unknown as Json,
+      scenes: data.scenes as unknown as Json,
       output_paths: data.paths,
       total_seconds: data.totalSeconds,
     })
