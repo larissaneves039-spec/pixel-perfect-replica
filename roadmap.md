@@ -1,5 +1,8 @@
 # Roadmap
 
+- [x] Cadastro: permitir voltar ao login e à página inicial após solicitar confirmação
+- [x] Confirmação: preservar o caminho do repositório no endereço de retorno do e-mail
+
 - [x] Tabelas `folders`/`videos`, função de fila e RLS no Supabase
 - [x] Bucket privado `videos` com regras por usuário
 - [x] Login por e-mail/senha (`/auth`) e rotas protegidas
@@ -13,4 +16,5 @@
 - [ ] Usuária: sincronizar a correção e executar novamente a publicação no GitHub Actions
   - Aguarda ação fora do app (GitHub). A chave pública não precisa de secret; SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY e PEXELS_API_KEY continuam necessários ao worker. WORKER_SECRET não é mais necessário.
 - [ ] Usuária: adicionar a URL final do GitHub Pages em Authentication → URL Configuration → Redirect URLs no Supabase
+  - Usar `https://larissaneves039-spec.github.io/pixel-perfect-replica/` também como Site URL, evitando retorno ao padrão localhost; configuração externa ainda não verificada.
 - [ ] Usuária: ativar o provedor de e-mail/senha no Supabase (Authentication → Providers), se ainda não estiver ativo

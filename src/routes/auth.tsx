@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { authEmailRedirect } from "@/lib/authRedirect";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -45,7 +46,7 @@ function AuthPage() {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: window.location.origin },
+          options: { emailRedirectTo: authEmailRedirect(window.location.origin, import.meta.env.BASE_URL) },
         });
         if (error) throw error;
         if (data.session) {
@@ -78,21 +79,21 @@ function AuthPage() {
             <p className="text-muted-foreground">
               Confirme seu e-mail na mensagem que enviamos (verifique também o spam) e depois volte aqui para entrar.
             </p>
-            <Button variant="secondary" onClick={() => setMode("signin")} className="w-full">
+            <Button variant="secondary" onClick={() => { setConfirmEmail(false); setMode("signin"); }} className="w-full">
               Voltar para o login
             </Button>
           </div>
         ) : (
           <form className="space-y-4" onSubmit={submit}>
             <div className="flex rounded-md border border-input p-1 text-sm">
-              <button type="button" onClick={() => setMode("signin")}
-                className={`flex-1 rounded px-3 py-1.5 ${mode === "signin" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+              <Button type="button" onClick={() => setMode("signin")}
+                variant={mode === "signin" ? "default" : "ghost"} className="flex-1">
                 Entrar
-              </button>
-              <button type="button" onClick={() => setMode("signup")}
-                className={`flex-1 rounded px-3 py-1.5 ${mode === "signup" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+              </Button>
+              <Button type="button" onClick={() => setMode("signup")}
+                variant={mode === "signup" ? "default" : "ghost"} className="flex-1">
                 Criar conta
-              </button>
+              </Button>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="email">E-mail</Label>
@@ -106,11 +107,11 @@ function AuthPage() {
               {busy && <Loader2 className="size-4 animate-spin" />}
               {mode === "signup" ? "Criar conta" : "Entrar"}
             </Button>
-            <p className="text-center text-xs text-muted-foreground">
-              <Link to="/" className="hover:text-primary">Voltar ao gerador</Link>
-            </p>
           </form>
         )}
+        <p className="text-center text-xs text-muted-foreground">
+          <Link to="/" className="hover:text-primary">Voltar ao gerador</Link>
+        </p>
       </div>
     </div>
   );
