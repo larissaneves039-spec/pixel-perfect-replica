@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { FolderOpen, LogOut, Settings, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { blockedTermsFor } from "@/lib/contentFilter";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
