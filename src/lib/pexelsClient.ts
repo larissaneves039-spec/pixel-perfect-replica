@@ -12,6 +12,7 @@ export interface Media {
   duration?: number;
   authorName: string;
   pexelsUrl: string;
+  alt?: string;
 }
 
 export type PexelsErrorKind = "auth" | "rate" | "timeout" | "network" | "http";
@@ -159,6 +160,7 @@ export class PexelsClient {
       height: ph.height,
       authorName: ph.photographer ?? "Pexels",
       pexelsUrl: ph.url,
+      alt: ph.alt ?? "",
     }));
     return { items, hasMore };
   }

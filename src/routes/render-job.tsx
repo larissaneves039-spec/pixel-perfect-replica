@@ -86,7 +86,7 @@ function RenderJobPage() {
         const client = job.pexelsKey
           ? new PexelsClient(job.pexelsKey, s.minWidth, s.quality, () => {})
           : null;
-        const opts = { orientation: s.orientation, mode: s.mode, photoPct: 0 };
+        const opts = { orientation: s.orientation, mode: s.mode, photoPct: 0, blockedTerms: blockedTermsFor(s.theme) };
 
         const canvas = canvasRef.current;
         if (!canvas) throw new Error("Canvas indisponível.");
