@@ -145,6 +145,7 @@ export async function analyzeAudio(key: string, file: File, duration: number, lo
   const prompt = `Você ouvirá um áudio de ${Math.round(duration)} segundos que será narrado sobre um vídeo de fundo montado com clipes do banco Pexels.
 Escute, entenda o assunto e a linha lógica, e divida em seções na ordem do áudio (início e fim em segundos, cobrindo de 0 a ${Math.round(duration)}), cada uma com a mudança de assunto/visual. Use entre 1 e 12 seções.
 Para cada seção dê uma descrição curta (${locale === "pt-BR" ? "em português" : "em inglês"}) e 2 a 5 palavras-chave visuais concretas EM INGLÊS, boas para buscar vídeos de banco (ex.: "ocean waves", "city night").
+Se o áudio for religioso (ex.: cristão/evangélico), o tema geral DEVE dizer isso explicitamente (ex.: "louvor cristão") e as palavras-chave devem ser neutras e fiéis a essa fé (ex.: "sunrise sky", "open bible", "people praying hands", "simple wooden cross", "nature light"). NUNCA use termos ou símbolos de outras religiões, ocultismo ou bruxaria (templos, monges, mesquitas, terços, santos, estátuas, imagens de Maria, incenso, yoga, tarô, signos, magia, caveiras etc.).
 Dê também o tema geral curto (${locale === "pt-BR" ? "em português" : "em inglês"}), palavras-chave gerais em inglês e o tom visual mais adequado.`;
   const { json } = await call(key, {
     contents: [{ parts: [{ inline_data: { mime_type: audioMime(file), data } }, { text: prompt }] }],

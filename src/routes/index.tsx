@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { FolderOpen, LogOut, Settings, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { blockedTermsFor } from "@/lib/contentFilter";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -82,7 +83,10 @@ function Index() {
   useEffect(() => saveForm(form), [form]);
 
   const fmt = FORMAT_SIZE[form.format];
-  const opts = { orientation: fmt.orientation, mode: form.mode, photoPct: form.photoPct };
+  const opts = {
+    orientation: fmt.orientation, mode: form.mode, photoPct: form.photoPct,
+    blockedTerms: blockedTermsFor(form.theme, form.keywords, form.sections.map((x) => `${x.description} ${(x.keywords ?? []).join(" ")}`)),
+  };
   const queriesFor = (s: Slot) =>
     buildQueries({ theme: form.theme, sectionText: form.sections[s.sectionIndex]?.description ?? "", sectionKeywords: form.sections[s.sectionIndex]?.keywords, tone: form.tone, keywords: form.keywords, slotIndex: s.index, userLocale: form.locale });
 

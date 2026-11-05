@@ -1,6 +1,7 @@
 import type { Media, MediaType, Orientation, SearchPage, SearchParams } from "./pexelsClient";
 import { PexelsError } from "./pexelsClient";
 import type { Query, SectionQueries } from "./queryBuilder";
+import { hasBlockedTerm } from "./contentFilter";
 import { nextEffect, type Effect, type Slot } from "./slotPlanner";
 
 export interface Searcher {
@@ -18,6 +19,8 @@ export interface ResolveOptions {
   chainTimeoutMs?: number;
   slotTimeoutMs?: number;
   videoOnly?: boolean;
+  /** Termos proibidos (ex.: outras religiões em conteúdo cristão). */
+  blockedTerms?: string[];
 }
 
 export interface ResolvedSlot {
@@ -54,7 +57,10 @@ async function fromQuery(
 ): Promise<Media[]> {
   for (let page = 1; page <= 3; page++) {
     const res = await s.search({ type, query: q.q, orientation: opts.orientation, locale: q.locale, page, useSize: !relaxed });
-    const c = res.items.filter((m) => usable(m, relaxed) && !used.has(m.key) && !exclude.has(m.key));
+    const blocked = opts.blockedTerms ?? [];
+    const c = res.items.filter(
+      (m) => usable(m, relaxed) && !used.has(m.key) && !exclude.has(m.key) && !hasBlockedTerm(`${m.pexelsUrl} ${m.alt ?? ""}`, blocked),
+    );
     if (c.length || !res.hasMore) return c;
   }
   return [];
@@ -85,7 +91,7 @@ export async function resolveSlot(
   let stop = false;
 
   const run = async (q: Query | null, relaxed: boolean) => {
-    if (!q || stop) return;
+    if (!q || stop || hasBlockedTerm(q.q, opts.blockedTerms ?? [])) return;
     if (Date.now() - started > chainMs) {
       stop = true;
       return;
