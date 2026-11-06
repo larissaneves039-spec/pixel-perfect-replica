@@ -119,7 +119,7 @@ function RenderJobPage() {
           audio,
           crossfade: s.crossfade,
           scanlines: s.scanlines,
-          captions: s.captions,
+          captions: s.captions ?? [],
           bitrateMbps: s.bitrateMbps,
           partSeconds: s.partSeconds ?? null,
           onProgress: (p: RenderProgress) => {
