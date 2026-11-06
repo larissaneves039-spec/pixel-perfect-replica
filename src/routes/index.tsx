@@ -248,6 +248,7 @@ function Index() {
       } else {
         setParts(out);
         setStep("result");
+        void autoSave(out);
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro na renderização.");
@@ -293,13 +294,30 @@ function Index() {
     }
   };
 
-  const saveRendered = async (folderId: string) => {
+  // Salva automaticamente o vídeo renderizado na aba "Meus vídeos" (primeira pasta,
+  // ou cria "Meus vídeos" se ainda não houver nenhuma).
+  const autoSave = async (out: typeof parts) => {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) {
+      toast("Entre na sua conta para guardar os vídeos na aba Meus vídeos.");
+      return;
+    }
+    try {
+      const folders = await listFolders();
+      const folderId = folders?.[0]?.id ?? (await createFolder({ data: { name: "Meus vídeos" } })).id;
+      await saveRendered(folderId, out, false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível salvar o vídeo automaticamente.");
+    }
+  };
+
+  const saveRendered = async (folderId: string, partsToSave = parts, goToVideos = true) => {
     setFolderBusy(true);
     try {
       const { data } = await supabase.auth.getUser();
       if (!data.user) throw new Error("Sessão expirada — entre novamente.");
       const paths: string[] = [];
-      for (const p of parts) {
+      for (const p of partsToSave) {
         const path = `${data.user.id}/done/${crypto.randomUUID()}/parte-${String(p.index + 1).padStart(2, "0")}.${p.ext}`;
         const { error } = await supabase.storage.from("videos").upload(path, p.blob, {
           upsert: true,
@@ -318,9 +336,9 @@ function Index() {
           paths,
         },
       });
-      toast.success("Vídeo salvo na pasta!");
+      toast.success("Vídeo salvo em Meus vídeos!");
       setSaveOpen(false);
-      navigate({ to: "/videos" });
+      if (goToVideos) navigate({ to: "/videos" });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao salvar o vídeo.");
     } finally {
