@@ -109,6 +109,7 @@ function Index() {
         hours: Math.floor(total / 3600), minutes: Math.floor((total % 3600) / 60), seconds: total % 60,
         theme: a.theme || f.theme, tone: a.tone, keywords: a.keywords.slice(0, 6),
         sections: sectionsFromAnalysis(a.sections, total),
+        captions: a.captions ?? [],
       }));
       toast.success("Áudio analisado! Revise o tema e as seções.");
     } catch (e) {
@@ -235,6 +236,7 @@ function Index() {
         audio: audioFile && form.includeAudio ? audioFile : null,
         crossfade: form.crossfade,
         scanlines: form.scanlines,
+        captions: form.subtitles ? form.captions : [],
         bitrateMbps: form.bitrate,
         partSeconds: form.partMinutes ? form.partMinutes * 60 : null,
         onProgress: setRp,

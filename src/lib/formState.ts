@@ -25,6 +25,8 @@ export interface FormState {
   bitrate: 5 | 8 | 12;
   partMinutes: 0 | 5 | 10 | 20 | 30;
   includeAudio: boolean;
+  subtitles: boolean;
+  captions: import("./captions").Caption[];
 }
 
 export const DEFAULT_FORM: FormState = {
@@ -46,6 +48,8 @@ export const DEFAULT_FORM: FormState = {
   bitrate: 8,
   partMinutes: 20,
   includeAudio: true,
+  subtitles: false,
+  captions: [],
 };
 
 export const FORMAT_SIZE: Record<Format, { w: number; h: number; orientation: "landscape" | "portrait"; minWidth: number }> = {

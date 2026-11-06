@@ -93,6 +93,12 @@ export function GeneratorForm(props: { form: FormState; onChange: (f: FormState)
             <Switch checked={f.includeAudio} onCheckedChange={(v) => set({ includeAudio: v })} /> Incluir o áudio no vídeo final
           </label>
         )}
+        {a.name && (
+          <label className="flex items-center gap-2 text-sm">
+            <Switch checked={f.subtitles} onCheckedChange={(v) => set({ subtitles: v })} disabled={!f.captions?.length} /> Mostrar legendas na parte inferior do vídeo
+            {!f.captions?.length && <span className="text-xs text-muted-foreground">(analise o áudio para gerar as legendas)</span>}
+          </label>
+        )}
       </div>
       <div className="grid gap-7 md:grid-cols-2">
         <Field label="Duração do vídeo" hint={total > 1800 ? <span className="text-warning">A renderização acontece em tempo real: um vídeo de {Math.round(total / 60)} min leva cerca de {Math.round(total / 60)} min para ficar pronto.</span> : total < MIN_TOTAL ? "Mínimo de 10 segundos." : total > MAX_TOTAL ? "Máximo de 3 horas." : null}>
