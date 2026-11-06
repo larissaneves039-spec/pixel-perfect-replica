@@ -2,6 +2,7 @@ import fixWebmDuration from "fix-webm-duration";
 import type { Media } from "./pexelsClient";
 import type { Effect } from "./slotPlanner";
 import { loadVideoWithReplacement } from "./videoReplacement";
+import { type Caption, captionAt, wrapCaption } from "./captions";
 
 export interface Scene {
   start: number;
@@ -42,6 +43,7 @@ export interface RenderOptions {
   replaceVideo?: (blocked: Media, sceneIndex: number) => Promise<Media | null>;
   onVideoReplaced?: (media: Media, sceneIndex: number) => void;
   audio?: Blob | null;
+  captions?: Caption[];
   signal: AbortSignal;
 }
 
@@ -209,6 +211,28 @@ export async function renderVideo(o: RenderOptions): Promise<RenderPart[]> {
     return ctx.createPattern(c, "repeat");
   })();
 
+  const caps = o.captions ?? [];
+  const drawCaption = (t: number) => {
+    const c = captionAt(caps, t);
+    if (!c) return;
+    const size = Math.round(Math.min(W, H) * 0.055);
+    ctx.font = `700 ${size}px system-ui, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    const lines = wrapCaption(c.text, W * 0.86, (s) => ctx.measureText(s).width);
+    const lh = size * 1.25;
+    const bottom = H - H * 0.08;
+    ctx.lineJoin = "round";
+    ctx.lineWidth = size * 0.16;
+    ctx.strokeStyle = "rgba(0,0,0,0.85)";
+    ctx.fillStyle = "#fff";
+    lines.forEach((line, k) => {
+      const y = bottom - (lines.length - 1 - k) * lh;
+      ctx.strokeText(line, W / 2, y);
+      ctx.fillText(line, W / 2, y);
+    });
+  };
+
   const loaded = new Map<number, Promise<Loaded>>();
   const ready = new Map<number, Loaded>();
   let failure: unknown = null;
@@ -368,6 +392,7 @@ export async function renderVideo(o: RenderOptions): Promise<RenderPart[]> {
         ctx.fillRect(0, 0, W, H);
         ctx.globalAlpha = 1;
       }
+      drawCaption(t);
     };
 
     frame(pStart);

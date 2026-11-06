@@ -20,6 +20,7 @@ export interface StoredSettings {
   total: number;
   crossfade: number;
   scanlines: boolean;
+  captions?: import("./captions").Caption[];
   bitrateMbps: number;
   partSeconds: number | null;
   includeAudio: boolean;
@@ -53,6 +54,7 @@ export function buildSettings(form: FormState, total: number): StoredSettings {
     total,
     crossfade: form.crossfade,
     scanlines: form.scanlines,
+    captions: form.subtitles ? form.captions : [],
     bitrateMbps: form.bitrate,
     partSeconds: form.partMinutes ? form.partMinutes * 60 : null,
     includeAudio: form.includeAudio,
